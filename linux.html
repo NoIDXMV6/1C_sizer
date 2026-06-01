@@ -1,0 +1,711 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Сайзер для 1С – Linux + PostgreSQL</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { background: #eef2f7; font-family: 'Segoe UI', Roboto, sans-serif; padding: 20px; }
+        .container { max-width: 1400px; margin: 0 auto; }
+        .card {
+            background: white;
+            border-radius: 28px;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.08);
+            margin-bottom: 25px;
+            overflow: hidden;
+        }
+        .card-header {
+            background: #1e2a3e;
+            color: white;
+            padding: 1rem 1.5rem;
+            font-size: 1.2rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+            justify-content: space-between;
+        }
+        .card-body { padding: 1.5rem; }
+        table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+        th, td { text-align: left; padding: 10px 8px; border-bottom: 1px solid #e2e8f0; vertical-align: top; }
+        th { background: #f1f5f9; width: 22%; }
+        code { background: #eef2ff; padding: 2px 6px; border-radius: 10px; font-family: monospace; font-size: 0.75rem; word-break: break-word; }
+        .copy-btn {
+            background: #2c6e9e; color: white; border: none;
+            padding: 4px 10px; border-radius: 20px; font-size: 0.7rem;
+            cursor: pointer; margin-left: 8px;
+        }
+        .copy-btn:hover { background: #1e4a6e; }
+        input, select {
+            width: 100%; padding: 8px 10px;
+            border: 1px solid #cbd5e1; border-radius: 14px; font-size: 0.85rem;
+        }
+        button {
+            background: #1e2a3e; color: white; border: none;
+            padding: 10px 20px; border-radius: 40px; font-size: 0.9rem;
+            cursor: pointer; margin-right: 10px; margin-top: 10px;
+        }
+        button:hover { background: #2c6e9e; }
+        .diagnostic-box {
+            background: #f8fafc; border-radius: 20px;
+            padding: 1.2rem; margin-top: 1.5rem;
+            border-left: 5px solid #2c6e9e;
+        }
+        .diagnostic-critical { border-left-color: #dc2626; background: #fff5f5; }
+        .diagnostic-warning  { border-left-color: #f59e0b; background: #fffbeb; }
+        .diagnostic-good     { border-left-color: #10b981; background: #f0fdf4; }
+        .flex-btns { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 15px; }
+        .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1rem; margin-bottom: 1rem; }
+        hr { margin: 15px 0; border-color: #e2edf2; }
+        .back-link {
+            display: inline-block; background: #6c86a3; color: white;
+            padding: 8px 16px; border-radius: 30px; text-decoration: none; font-size: 0.85rem;
+        }
+        .back-link:hover { background: #5a6e8a; }
+        .note { font-size: 0.8rem; color: #5b6e8c; margin-top: 8px; }
+        .admin-note {
+            background: #fff3cd; border-left: 4px solid #ffc107;
+            padding: 12px 15px; margin-bottom: 15px;
+            border-radius: 12px; font-size: 0.85rem;
+        }
+        .install-note {
+            background: #e6f7ec; border-left: 4px solid #10b981;
+            padding: 12px 15px; margin-bottom: 20px; border-radius: 12px;
+            display: flex; align-items: center; justify-content: space-between;
+            flex-wrap: wrap; gap: 10px;
+        }
+        .info-block {
+            background: #e0f2fe; border-left: 4px solid #0284c7;
+            padding: 12px 15px; margin-top: 20px;
+            border-radius: 12px; font-size: 0.85rem;
+        }
+        .gilev-group {
+            background: #f3e8ff; border-left: 4px solid #9333ea;
+            padding: 12px 15px; margin-bottom: 20px; border-radius: 12px;
+        }
+        .conf-group {
+            background: #fef9ec; border-left: 4px solid #d97706;
+            padding: 12px 15px; margin-bottom: 20px; border-radius: 12px;
+        }
+        .modal {
+            display: none; position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.5);
+            justify-content: center; align-items: center; z-index: 1000;
+        }
+        .modal-content {
+            background: white; max-width: 700px; width: 90%;
+            border-radius: 28px; padding: 20px;
+            box-shadow: 0 20px 35px rgba(0,0,0,0.3);
+        }
+        .modal-header { font-size: 1.3rem; font-weight: bold; margin-bottom: 15px; }
+        .close-modal { float: right; cursor: pointer; font-size: 1.5rem; }
+        .modal pre, .modal code { color: #e2e8f0 !important; background: transparent; }
+        .recommend-table {
+            width: 100%; border-collapse: collapse; margin: 12px 0;
+            background: white; border-radius: 16px; overflow: hidden;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        }
+        .recommend-table th, .recommend-table td {
+            padding: 10px 12px; text-align: left;
+            border-bottom: 1px solid #e2e8f0; vertical-align: top;
+        }
+        .recommend-table th {
+            background-color: #f1f5f9; font-weight: 600; width: 35%; color: #1e2a3e;
+        }
+        .recommend-table td { background-color: #ffffff; color: #1e2a3e; }
+        .recommend-table tr:last-child td, .recommend-table tr:last-child th { border-bottom: none; }
+        .warn-inline {
+            background: #fffbeb; border: 1px solid #fcd34d;
+            border-radius: 8px; padding: 6px 10px;
+            font-size: 0.8rem; color: #92400e; margin-top: 6px;
+        }
+        @media (max-width: 700px) {
+            .recommend-table th, .recommend-table td { padding: 8px 10px; font-size: 0.8rem; }
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+
+    <!-- Modal: Тест Гилёва -->
+    <div id="gilevModal" class="modal">
+        <div class="modal-content">
+            <span class="close-modal" onclick="document.getElementById('gilevModal').style.display='none'">&times;</span>
+            <div class="modal-header">📊 Запуск теста Гилёва (TPC-1C) на Linux</div>
+            <p>Тест измеряет производительность сервера в условных операциях в секунду. Выполните команды на сервере 1С (не на клиенте):</p>
+            <div style="background: #0f172a; border-radius: 16px; padding: 16px; margin: 15px 0; overflow-x: auto;">
+                <pre style="margin: 0; font-family: 'Courier New', monospace; font-size: 13px; color: #e2e8f0; white-space: pre-wrap; word-break: break-word;"><code>wget http://www.gilev.ru/tpc1cgilv/tpc1cgilv.zip
+unzip tpc1cgilv.zip -d /opt/tpc1c
+cd /opt/tpc1c
+chmod +x tpc1c_gilv
+./tpc1c_gilv</code></pre>
+            </div>
+            <button class="copy-modal-btn" data-cmd="wget http://www.gilev.ru/tpc1cgilv/tpc1cgilv.zip
+unzip tpc1cgilv.zip -d /opt/tpc1c
+cd /opt/tpc1c
+chmod +x tpc1c_gilv
+./tpc1c_gilv" style="background: #2c6e9e; color: white; border: none; padding: 6px 16px; border-radius: 24px; cursor: pointer; margin-bottom: 15px;">📋 Копировать команды</button>
+            <p><strong>Интерпретация:</strong><br>
+            • &lt; 15 оп/с – очень низкая производительность, требуется апгрейд.<br>
+            • 15–30 – средняя, возможны задержки при 20+ пользователях.<br>
+            • 30–50 – хорошая, комфортная работа.<br>
+            • &gt;50 – отличная, подходит для высоких нагрузок.<br>
+            <strong>Важно:</strong> тест однопоточный и чувствителен к тактовой частоте CPU, настройкам энергосбережения и топологии NUMA. При тестировании убедитесь, что governor установлен в <code>performance</code>: <code>cpupower frequency-set -g performance</code>. Для виртуальных машин результаты могут быть ниже реальных.</p>
+            <button onclick="document.getElementById('gilevModal').style.display='none'" style="margin-top: 5px;">Закрыть</button>
+        </div>
+    </div>
+
+    <!-- Секция 1: Сбор параметров и диагностика -->
+    <div class="card">
+        <div class="card-header">
+            <span>🐧 Linux + PostgreSQL – сбор параметров и диагностика</span>
+            <a href="index.html" class="back-link">← На главную</a>
+        </div>
+        <div class="card-body">
+            <div class="admin-note">
+                ⚠️ <strong>Внимание:</strong> Некоторые команды требуют прав суперпользователя (<code>sudo</code>). Запускайте их от имени пользователя с правами sudo.
+            </div>
+            <div class="install-note">
+                <span>📦 <strong>Если команда <code>iostat</code> не найдена</strong> – установите пакет <code>sysstat</code>:</span>
+                <code style="background:#1e2a3e; color:white; padding:6px 12px; border-radius:30px;">sudo apt update && sudo apt install sysstat -y</code>
+                <button class="copy-btn" data-cmd="sudo apt update && sudo apt install sysstat -y" style="background:#10b981;">📋 Копировать</button>
+            </div>
+
+            <!-- Тип конфигурации 1С -->
+            <div class="conf-group">
+                <strong>🗂️ Тип конфигурации 1С:</strong>
+                <select id="conf_type" style="width:auto; display:inline-block; margin-left:10px; min-width:260px;">
+                    <option value="bp">Бухгалтерия предприятия (БП)</option>
+                    <option value="ut" selected>Управление торговлей (УТ) / ЗУП</option>
+                    <option value="erp">ERP / Комплексная автоматизация (КА)</option>
+                    <option value="custom">Нетиповая / не знаю</option>
+                </select>
+                <span class="note">Влияет на расход RAM сервера приложений (БП: ~2 ГБ/польз., УТ/ЗУП: ~2.5 ГБ/польз., ERP/КА: ~3.5 ГБ/польз.)</span>
+            </div>
+
+            <!-- Тест Гилёва -->
+            <div class="gilev-group">
+                <strong>⚡ Результат теста Гилёва (TPC-1C):</strong>
+                <input type="number" id="gilev_result" placeholder="Например 32" step="1" style="width:150px; display:inline-block; margin-left:10px;">
+                <button id="gilevHelpBtn" style="background:#9333ea; padding:4px 12px;">❓ Инструкция</button>
+                <span class="note">(оп/с – условных операций в секунду)</span>
+            </div>
+
+            <div style="overflow-x: auto;">
+                <table id="paramsTable">
+                    <thead><tr><th>Параметр</th><th>Команда для выполнения</th><th>Значение</th><th>Норма / примечание</th></tr></thead>
+                    <tbody>
+                        <tr>
+                            <td>👥 Активных пользователей (пик)</td>
+                            <td><code>оцените по журналу 1С</code><button class="copy-btn" data-cmd="оцените по журналу 1С">📋</button></td>
+                            <td><input type="number" id="curr_users" value="10"></td>
+                            <td>ключевой параметр</td>
+                        </tr>
+                        <tr>
+                            <td>💾 Размер всех БД (ГБ)</td>
+                            <td><code>sudo -u postgres psql -c "SELECT round(sum(pg_database_size(datname))/1024.0/1024,1) FROM pg_database;"</code><button class="copy-btn" data-cmd='sudo -u postgres psql -c "SELECT round(sum(pg_database_size(datname))/1024.0/1024,1) FROM pg_database;"'>📋</button></td>
+                            <td><input type="number" id="curr_dbsize" value="10"></td>
+                            <td>влияет на кэш</td>
+                        </tr>
+                        <tr>
+                            <td>⚡ Интенсивность нагрузки</td>
+                            <td><code>анализ типовых операций</code></td>
+                            <td><select id="curr_loadtype"><option value="light" selected>Лёгкая</option><option value="medium">Средняя</option><option value="heavy">Тяжёлая</option></select></td>
+                            <td>тяжёлая +40% ресурсов</td>
+                        </tr>
+                        <tr>
+                            <td>🖥️ Логических ядер CPU</td>
+                            <td><code>nproc</code><button class="copy-btn" data-cmd="nproc">📋</button></td>
+                            <td><input type="number" id="cpu_cores" value="4"></td>
+                            <td>для 1С+PG ≥4 ядер</td>
+                        </tr>
+                        <tr>
+                            <td>📈 Load average (1 мин)</td>
+                            <td><code>uptime | awk -F 'load average:' '{print $2}' | cut -d, -f1</code><button class="copy-btn" data-cmd="uptime | awk -F 'load average:' '{print $2}' | cut -d, -f1">📋</button></td>
+                            <td><input type="text" id="load1" value="1.5"></td>
+                            <td>&lt;0.7×ядер</td>
+                         </tr>
+                         <tr>
+                             <td>💿 Общий RAM (ГБ)</td>
+                             <td><code>free -h | grep Mem | awk '{print $2}'</code><button class="copy-btn" data-cmd="free -h | grep Mem | awk '{print $2}'">📋</button></td>
+                             <td><input type="number" id="ram_total" value="16"></td>
+                             <td>≥16 ГБ для малых БД</td>
+                         </tr>
+                         <tr>
+                             <td>🧠 Свободно RAM (ГБ)</td>
+                             <td><code>free -h | grep Mem | awk '{print $7}'</code><button class="copy-btn" data-cmd="free -h | grep Mem | awk '{print $7}'">📋</button></td>
+                             <td><input type="number" id="ram_free" value="6"></td>
+                             <td>&gt;10% от общего</td>
+                         </tr>
+                         <tr>
+                             <td>🔄 Используемый swap (ГБ)</td>
+                             <td><code>free -h | grep Swap | awk '{print $3}'</code><button class="copy-btn" data-cmd="free -h | grep Swap | awk '{print $3}'">📋</button></td>
+                             <td><input type="number" id="swap_used" value="0"></td>
+                             <td>0 – идеал, &gt;1 – кризис</td>
+                         </tr>
+                         <tr>
+                             <td>💽 Тип дискового массива</td>
+                             <td><code>lsblk -d -o NAME,ROTA | grep -v "loop"</code> (0=SSD/NVMe, 1=HDD)</td>
+                             <td>
+                                 <select id="disk_type">
+                                     <option value="nvme">NVMe SSD</option>
+                                     <option value="ssd" selected>SATA/SAS SSD</option>
+                                     <option value="hdd">HDD / RAID HDD</option>
+                                 </select>
+                             </td>
+                             <td>Влияет на пороги латентности await\n(рекомендуем NVMe для БД)</td>
+                         </tr>
+                         <tr>
+                             <td>💽 await диска (мс)</td>
+                             <td><code>iostat -x 1 3 | grep -E "sd|nvme" | tail -1 | awk '{print $10}'</code><button class="copy-btn" data-cmd="iostat -x 1 3 | grep -E 'sd|nvme' | tail -1 | awk '{print $10}'">📋</button></td>
+                             <td><input type="number" id="disk_await" value="2"></td>
+                             <td>NVMe&lt;2, SSD&lt;5, HDD&lt;20 – пороги зависят от типа диска</td>
+                         </tr>
+                         <tr>
+                             <td>⏳ avgqu-sz (очередь)</td>
+                             <td><code>iostat -x 1 3 | grep -E "sd|nvme" | tail -1 | awk '{print $9}'</code><button class="copy-btn" data-cmd="iostat -x 1 3 | grep -E 'sd|nvme' | tail -1 | awk '{print $9}'">📋</button></td>
+                             <td><input type="number" id="disk_avgqu" value="0.5"></td>
+                             <td>&lt;2.5 – норма, выше – недостаточно IOPS</td>
+                         </tr>
+                         <tr>
+                             <td>🐘 PostgreSQL cache hit %</td>
+                             <td><code>sudo -u postgres psql -t -c "SELECT round(sum(blks_hit)*100.0/(sum(blks_hit)+sum(blks_read)),2) FROM pg_stat_database WHERE blks_read+blks_hit>0;"</code><button class="copy-btn" data-cmd='sudo -u postgres psql -t -c "SELECT round(sum(blks_hit)*100.0/(sum(blks_hit)+sum(blks_read)),2) FROM pg_stat_database WHERE blks_read+blks_hit>0;"'>📋</button></td>
+                             <td><input type="number" id="pg_hit" value="98"></td>
+                             <td>&gt;98% – отлично, &lt;90% – критически мало RAM/настроек</td>
+                         </tr>
+                         <tr>
+                             <td>🔗 Активных соединений PG</td>
+                             <td><code>sudo -u postgres psql -t -c "SELECT count(*) FROM pg_stat_activity WHERE state='active';"</code><button class="copy-btn" data-cmd="sudo -u postgres psql -t -c \"SELECT count(*) FROM pg_stat_activity WHERE state='active';\">📋</button></td>
+                             <td><input type="number" id="pg_conn" value="10"></td>
+                             <td>При &gt;150 обязателен pgBouncer, иначе высокое потребление RAM на процессы}\,,
+                          </tr>
+                          <tr>
+                              <td>🐢 Медленные запросы</td>
+                              <td><code>grep -c "duration.*ms" /var/log/postgresql/postgresql-*.log 2>/dev/null | tail -1</code><button class="copy-btn" data-cmd="grep -c 'duration.*ms' /var/log/postgresql/postgresql-*.log 2>/dev/null | tail -1">📋</button></td>
+                              <td><select id="slow_queries"><option value="no" selected>Нет/редко</option><option value="yes">Да, часто</option></select></td>
+                              <td>требуют индексов, оптимизации запросов</td>
+                          </tr>
+                          <tr>
+                              <td>🌐 Сетевые ошибки</td>
+                              <td><code>ip -s link | grep -A 4 "eth\|ens" | grep errors</code><button class="copy-btn" data-cmd="ip -s link | grep -A 4 'eth|ens' | grep errors">📋</button></td>
+                              <td><select id="net_errors"><option value="no" selected>Нет</option><option value="yes">Есть</option></select></td>
+                              <td>должны быть 0</td>
+                          </tr>
+                          <tr>
+                              <td>🔄 Процессы в swap</td>
+                              <td><code>top -b -n 1 | grep -E "postgres|1c" | grep " S "</code><button class="copy-btn" data-cmd="top -b -n 1 | grep -E 'postgres|1c' | grep ' S '">📋</button></td>
+                              <td><select id="process_swap"><option value="no" selected>Нет</option><option value="yes">Да</option></select></td>
+                              <td>не должно быть – признак острой нехватки RAM</td>
+                          </tr>
+                    </tbody>
+                </table>
+            </div>
+            <div class="flex-btns">
+                <button id="analyzeBtn">🔍 Диагностика</button>
+                <button id="exportBtn">📄 Экспорт отчёта (MD)</button>
+            </div>
+            <div id="diagnosticResultArea"></div>
+        </div>
+    </div>
+
+    <!-- Секция 2: Подбор сервера -->
+    <div class="card">
+        <div class="card-header">⚙️ Подбор сервера на планируемую нагрузку</div>
+        <div class="card-body">
+            <div class="form-grid">
+                <div><label>🗂️ Тип конфигурации 1С</label>
+                    <select id="future_conf_type">
+                        <option value="bp">Бухгалтерия предприятия (БП)</option>
+                        <option value="ut" selected>Управление торговлей (УТ) / ЗУП</option>
+                        <option value="erp">ERP / Комплексная автоматизация (КА)</option>
+                        <option value="custom">Нетиповая / не знаю</option>
+                    </select>
+                </div>
+                <div><label>👥 Планируемое кол-во пользователей</label><input type="number" id="future_users" value="80"></div>
+                <div><label>📀 Планируемый размер БД (ГБ)</label><input type="number" id="future_dbsize" value="250"></div>
+                <div><label>⚡ Планируемая интенсивность</label>
+                    <select id="future_loadtype">
+                        <option value="light">Лёгкая</option>
+                        <option value="medium" selected>Средняя</option>
+                        <option value="heavy">Тяжёлая</option>
+                    </select>
+                </div>
+                <div><label>📈 Годовой рост пользователей (%)</label><input type="number" id="growth_percent" value="30"></div>
+            </div>
+            <button id="calcFutureBtn">📐 Рассчитать конфигурацию</button>
+            <div id="futureServerResult"></div>
+            <div class="info-block">
+                <strong>💡 Расширенные рекомендации (Linux + PostgreSQL)</strong><br>
+                • <strong>pgBouncer:</strong> При 50+ пользователях обязательно используйте pgBouncer в режиме transaction pooling. PostgreSQL создаёт отдельный процесс на каждое соединение (~5–10 МБ RAM), без пулера при 200 соединениях СУБД теряет до 20% производительности на управлении процессами.<br>
+                • <strong>Антивирус:</strong> Добавьте каталог данных PostgreSQL (<code>$PGDATA</code>) и рабочие каталоги 1С в исключения. Сканирование WAL-файлов в реальном времени убивает производительность.<br>
+                • <strong>RAM-диск для временных файлов:</strong> Смонтируйте <code>pg_stat_temp</code> в tmpfs: <code>mount -t tmpfs -o size=256m tmpfs /var/lib/postgresql/data/pg_stat_tmp</code>.<br>
+                • <strong>huge_pages:</strong> Включите transparent huge pages для PostgreSQL: <code>echo always > /sys/kernel/mm/transparent_hugepage/enabled</code>.<br>
+                • <strong>NUMA (многопроцессорные системы):</strong> На серверах с двумя и более сокетами CPU используйте <code>numactl --interleave=all</code> для PostgreSQL и для сервера 1С, чтобы избежать межсокетных задержек. Проверьте <code>numactl --hardware</code>.<br>
+                • <strong>Регламентные задания:</strong> VACUUM, ANALYZE, резервное копирование – только в нерабочее время.<br>
+                • <strong>Разделение серверов:</strong> При 30+ активных пользователях разделите сервер 1С и PostgreSQL. При 80+ рассмотрите кластер серверов 1С (2+ узла).<br>
+                • <strong>Кластер PostgreSQL:</strong> Для высокой доступности – Patroni + etcd (минимум 3 узла для кворума).
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const standardCores = [2, 4, 6, 8, 12, 16, 20, 24, 32, 48, 64];
+    const standardRam   = [16, 24, 32, 48, 64, 96, 128, 192, 256, 384, 512, 768];
+
+    const ramPerUserMap = { bp: 2.0, ut: 2.5, erp: 3.5, custom: 3.0 };
+    const appBaseRamGb  = 12;
+
+    document.querySelectorAll('.copy-modal-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            navigator.clipboard.writeText(btn.getAttribute('data-cmd'));
+            const t = btn.textContent;
+            btn.textContent = '✓ Скопировано!';
+            setTimeout(() => btn.textContent = t, 2000);
+        });
+    });
+
+    function roundToStandard(value, standards) {
+        if (value <= standards[0]) return standards[0];
+        for (let i = 0; i < standards.length; i++) {
+            if (value <= standards[i]) return standards[i];
+        }
+        return standards[standards.length - 1];
+    }
+
+    document.querySelectorAll('.copy-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            navigator.clipboard.writeText(btn.getAttribute('data-cmd'));
+            const t = btn.textContent;
+            btn.textContent = '✓';
+            setTimeout(() => btn.textContent = t, 1500);
+        });
+    });
+
+    function interpretGilev(val) {
+        if (val === null || isNaN(val)) return { text: "не указан" };
+        if (val < 15) return { text: "очень низкая (<15) – требуется срочный апгрейд" };
+        if (val < 30) return { text: "средняя (15–30) – возможны задержки" };
+        if (val < 50) return { text: "хорошая (30–50) – комфортная работа" };
+        return { text: "отличная (>50) – высокая производительность" };
+    }
+
+    function getArchitectureRecommendationText(users) {
+        if (users <= 30)  return "🟢 <b>Начальный уровень:</b> Сервер 1С и PostgreSQL можно разместить на одной машине. Экономически оправдано для малых нагрузок.";
+        if (users <= 80)  return "🟡 <b>Стандарт:</b> Рекомендуется разделить сервер приложений 1С и PostgreSQL на разные физические или виртуальные машины. Это устраняет конкуренцию за RAM и CPU, повышает отказоустойчивость. Сеть между серверами – не менее 1 Гбит/с. Используйте pgBouncer для пулинга соединений.";
+        if (users <= 150) return "🟠 <b>Кластер приложений + Отказоустойчивая СУБД:</b> Кластер серверов приложений 1С (2+ узла с балансировкой) и кластер PostgreSQL (Patroni + etcd). Обязателен pgBouncer. Сеть между узлами – 10 Гбит/с.";
+        return "🔴 <b>Высоконагруженная система:</b> Кластер серверов приложений 1С (3+ узла) и кластер PostgreSQL (Patroni, минимум 3 узла с quorum). pgBouncer на каждом app-узле. Рассмотрите лицензию 1С:Предприятие КОРП для снятия ограничений по ядрам.";
+    }
+
+    function getArchitectureDetailsLinux(users, config) {
+        if (users <= 30) {
+            const totalCpu = Math.max(config.appCpu, config.dbCpu);
+            const totalRam = config.appRam + config.dbRam;
+            let cpuDesc = totalCpu <= 4 ? "Intel Xeon E-2234 / AMD EPYC 3201"
+                        : totalCpu <= 8  ? "Intel Xeon E-2388G / AMD EPYC 3251"
+                        : totalCpu <= 16 ? "2× Intel Xeon Silver 4310 / AMD EPYC 7313"
+                        : "2× Intel Xeon Gold 5416S / AMD EPYC 9354";
+            return {
+                description: "Все компоненты (сервер 1С и PostgreSQL) на одном физическом сервере. Экономически оправдано для малых нагрузок.",
+                combinedRow: `<th>Единый сервер (1С + PostgreSQL)</th><td>${totalCpu} ядер<br>${cpuDesc}<br>${totalRam} ГБ RAM</td>`
+            };
+        }
+        if (users <= 80) {
+            return {
+                description: "Раздельные серверы приложений 1С и PostgreSQL. pgBouncer рекомендуется при 50+ пользователях.",
+                appRow: `<th>Сервер приложений 1С (1 узел)</th><td>${config.appCpu} ядер (упор на тактовую частоту!)<br>${config.appCpuDesc}<br>${config.appRam} ГБ RAM</td>`,
+                dbRow:  `<th>Сервер СУБД PostgreSQL (1 узел)</th><td>${config.dbCpu} ядер<br>${config.dbCpuDesc}<br>${config.dbRam} ГБ RAM</td>`
+            };
+        }
+        if (users <= 150) {
+            return {
+                description: "Кластер серверов приложений 1С (2+ узла) + отказоустойчивый PostgreSQL (Patroni + etcd). pgBouncer на каждом app-узле.",
+                appRow: `<th>Кластер серверов 1С (2+ узла)</th><td>Каждый узел:<br>${config.appCpu} ядер (высокая тактовая!)<br>${config.appCpuDesc}<br>${config.appRam} ГБ RAM</td>`,
+                dbRow:  `<th>Кластер PostgreSQL / Patroni (2+ узла)</th><td>Каждый узел:<br>${config.dbCpu} ядер<br>${config.dbCpuDesc}<br>${config.dbRam} ГБ RAM<br>+ 1 узел etcd (может быть совмещён)</td>`
+            };
+        }
+        return {
+            description: "Кластер серверов 1С (3+ узла) + кластер PostgreSQL Patroni (3+ узла для quorum). pgBouncer на каждом app-узле. Лицензия 1С:Предприятие КОРП.",
+            appRow: `<th>Кластер серверов 1С (3+ узла)</th><td>Каждый узел:<br>${config.appCpu} ядер (высокая тактовая!)<br>${config.appCpuDesc}<br>${config.appRam} ГБ RAM</td>`,
+            dbRow:  `<th>Кластер PostgreSQL / Patroni (3+ узла)</th><td>Каждый узел:<br>${config.dbCpu} ядер<br>${config.dbCpuDesc}<br>${config.dbRam} ГБ RAM<br>+ отдельные 3 узла etcd</td>`
+        };
+    }
+
+    function calcFutureServer() {
+        const users      = parseInt(document.getElementById('future_users').value)    || 10;
+        const dbSizeGb   = parseFloat(document.getElementById('future_dbsize').value) || 10;
+        const loadType   = document.getElementById('future_loadtype').value;
+        const growth     = parseFloat(document.getElementById('growth_percent').value) || 0;
+        const confType   = document.getElementById('future_conf_type').value;
+        const ramPerUser = ramPerUserMap[confType] || 3.0;
+
+        const growthFactor = 1 + growth / 100;
+        let loadFactor = loadType === 'heavy' ? 1.4 : loadType === 'medium' ? 1.1 : 0.9;
+        loadFactor = Math.min(1.6, loadFactor * growthFactor);
+
+        // --- APP SERVER ---
+        const usersPerCore = loadType === 'heavy' ? 4 : loadType === 'medium' ? 6 : 10;
+        let appRawCores = Math.ceil(users / usersPerCore);
+        appRawCores = Math.max(2, Math.min(64, Math.ceil(appRawCores * Math.min(1.3, loadFactor))));
+        const appCores = roundToStandard(appRawCores, standardCores);
+
+        let appRawRam = appBaseRamGb + Math.ceil(users * ramPerUser);
+        if (loadFactor > 1.2) appRawRam = appRawRam * 1.15;
+        appRawRam = Math.max(16, Math.min(512, appRawRam));
+        const appRamGb = roundToStandard(appRawRam, standardRam);
+
+        const appCpuDesc = appCores <= 4  ? "Intel Xeon E-2334 / AMD EPYC 3251 (важна частота ≥3.5 ГГц)"
+                         : appCores <= 8  ? "Intel Xeon E-2388G / AMD EPYC 7303P (частота ≥3.2 ГГц)"
+                         : appCores <= 16 ? "2× Intel Xeon Silver 4314 / AMD EPYC 7313"
+                         : "2× Intel Xeon Gold 6338 / AMD EPYC 7413";
+
+        // --- DB SERVER (PostgreSQL) ---
+        let dbRawCores = users <= 10  ? 2
+                       : users <= 20  ? 4
+                       : users <= 50  ? 6
+                       : users <= 100 ? 10
+                       : users <= 200 ? 14
+                       : 20;
+        dbRawCores = Math.max(2, Math.min(64, Math.ceil(dbRawCores * Math.min(1.4, loadFactor))));
+        const dbCores = roundToStandard(dbRawCores, standardCores);
+
+        const connOverhead = Math.ceil(users * 1.5 * 10 / 1024);
+        let dbRawRam = Math.max(16, Math.ceil(dbSizeGb * 0.35) + connOverhead);
+        if (loadFactor > 1.2) dbRawRam = dbRawRam * 1.2;
+        if (users > 30 && dbSizeGb <= 50) dbRawRam = Math.max(32, dbRawRam);
+        dbRawRam = Math.min(512, dbRawRam);
+        const dbRamGb = roundToStandard(dbRawRam, standardRam);
+
+        const dbCpuDesc = dbCores <= 4  ? "Intel Xeon E-2234 / AMD EPYC 3201"
+                        : dbCores <= 8  ? "Intel Xeon E-2388G / AMD EPYC 7262"
+                        : dbCores <= 16 ? "2× Intel Xeon Silver 4310 / AMD EPYC 7313"
+                        : "2× Intel Xeon Gold 5416S / AMD EPYC 9354";
+
+        const sharedBuffers = Math.round(dbRamGb * 0.25);
+        const effectiveCacheSize = Math.round(dbRamGb * 0.65);
+        const safeWorkMem = Math.max(4, Math.min(64, Math.floor((dbRamGb * 0.1 * 1024) / Math.max(users * 1.5, 10) / 4)));
+        const maintenanceWorkMem = Math.min(2048, Math.round(dbRamGb * 0.05 * 1024));
+        const maxConn = users <= 50 ? Math.max(100, users * 3) : Math.max(200, users * 2);
+
+        const pgHint = `shared_buffers = <b>${sharedBuffers}GB</b><br>
+effective_cache_size = <b>${effectiveCacheSize}GB</b><br>
+work_mem = <b>${safeWorkMem}MB</b> <span style="color:#dc2626">⚠️ это per-sort-operation, не per-connection!</span><br>
+maintenance_work_mem = <b>${maintenanceWorkMem}MB</b><br>
+max_connections = <b>${maxConn}</b>${users > 50 ? ' (рекомендуется pgBouncer, тогда можно снизить до 100–150)' : ''}`;
+
+        const config = { appCpu: appCores, appRam: appRamGb, appCpuDesc, dbCpu: dbCores, dbRam: dbRamGb, dbCpuDesc };
+        const architecture = getArchitectureDetailsLinux(users, config);
+
+        const totalSpaceGb = Math.ceil(dbSizeGb * 2.5);
+        let diskDesc = users <= 30 && dbSizeGb <= 100
+            ? `NVMe SSD (одиночный или RAID 1 из 2× NVMe), объём ${totalSpaceGb} ГБ. WAL желательно вынести на отдельный раздел.`
+            : users <= 80 || dbSizeGb <= 300
+            ? `RAID 1 или RAID 10 из 4× NVMe SSD, объём ${totalSpaceGb} ГБ. WAL (pg_wal) – отдельный NVMe. tmpfs для pg_stat_tmp.`
+            : `RAID 10 из 6+ NVMe SSD, объём ${totalSpaceGb} ГБ. WAL на отдельном NVMe. Отдельный раздел tmpfs для временных таблиц.`;
+        const netSpeed = users <= 30 ? "1 Гбит/с" : users <= 80 ? "10 Гбит/с" : "10 Гбит/с (LACP bond)";
+
+        const pgBouncerNote = users >= 50
+            ? `<div class="warn-inline">🔌 <b>pgBouncer обязателен</b> при ${users} пользователях. Режим: transaction pooling. pool_size = ${Math.ceil(dbCores * 3)}–${Math.ceil(dbCores * 5)} на базу. Без него PG создаёт ${maxConn}+ процессов одновременно.</div>`
+            : '';
+
+        let html = `<div class="diagnostic-box diagnostic-good">
+            <strong>✅ Рекомендованная архитектура и конфигурация (Linux + PostgreSQL) с учётом роста ${growth}%:</strong>
+            <table class="recommend-table">
+                <tr><th>Компонент</th><th>Рекомендуемая конфигурация</th></tr>`;
+        if (users <= 30) {
+            html += `<tr>${architecture.combinedRow}</tr>`;
+        } else {
+            html += `<tr>${architecture.appRow}</tr>
+                      <tr>${architecture.dbRow}</tr>`;
+        }
+        html += `
+                <tr>
+                    <th>Дисковая подсистема</th>
+                    <td>${diskDesc}<br>Сеть: ${netSpeed}</td>
+                </tr>
+                <tr>
+                    <th>Ключевые настройки PostgreSQL</th>
+                    <td>${pgHint}${pgBouncerNote}</td>
+                </tr>
+                <tr>
+                    <th>Архитектура</th>
+                    <td>${architecture.description}</td>
+                </tr>
+            </table>
+        </div>`;
+        document.getElementById('futureServerResult').innerHTML = html;
+    }
+
+    function performDiagnostics() {
+        const currUsers    = parseFloat(document.getElementById('curr_users').value)    || 1;
+        const currDbSize   = parseFloat(document.getElementById('curr_dbsize').value)   || 10;
+        const currLoad     = document.getElementById('curr_loadtype').value;
+        const confType     = document.getElementById('conf_type').value;
+        const cpuCores     = parseFloat(document.getElementById('cpu_cores').value)     || 1;
+        const load1        = parseFloat(document.getElementById('load1').value)         || 0;
+        const ramTotal     = parseFloat(document.getElementById('ram_total').value)     || 16;
+        const ramFree      = parseFloat(document.getElementById('ram_free').value)      || 2;
+        const swapUsed     = parseFloat(document.getElementById('swap_used').value)     || 0;
+        const diskType     = document.getElementById('disk_type').value;
+        const diskAwait    = parseFloat(document.getElementById('disk_await').value)    || 0;
+        const diskAvgqu    = parseFloat(document.getElementById('disk_avgqu').value)    || 0;
+        const pgHit        = parseFloat(document.getElementById('pg_hit').value)        || 90;
+        const pgConn       = parseFloat(document.getElementById('pg_conn').value)       || 0;
+        const slowQueries  = document.getElementById('slow_queries').value;
+        const netErrors    = document.getElementById('net_errors').value;
+        const processSwap  = document.getElementById('process_swap').value;
+        const gilev        = parseFloat(document.getElementById('gilev_result').value);
+        const gilevInterp  = interpretGilev(gilev);
+        const ramPerUser   = ramPerUserMap[confType] || 3.0;
+
+        let problems = [];
+        let criticalScore = 0;
+        let warningScore  = 0;
+
+        const usersPerCore = currLoad === 'heavy' ? 4 : currLoad === 'medium' ? 6 : 10;
+        const requiredCores = Math.ceil(currUsers / usersPerCore);
+        if (cpuCores < requiredCores) {
+            problems.push(`⚠️ CPU: ${cpuCores} яд., рекомендуется ≥${requiredCores} для ${currUsers} польз. при нагрузке "${currLoad}"`);
+            warningScore++;
+        }
+        const loadPerCore = load1 / cpuCores;
+        if (loadPerCore > 0.85) {
+            problems.push(`❌ CPU перегружен: load/ядро = ${loadPerCore.toFixed(2)} (норма <0.7)`);
+            criticalScore += 2;
+        } else if (loadPerCore > 0.7) {
+            problems.push(`⚠️ Повышенная нагрузка CPU: load/ядро = ${loadPerCore.toFixed(2)}`);
+            warningScore++;
+        }
+
+        const recommendedAppRam = Math.ceil(appBaseRamGb + currUsers * ramPerUser);
+        const recommendedDbRam  = Math.max(16, Math.ceil(currDbSize * 0.3));
+        const recommendedRam    = recommendedAppRam + recommendedDbRam;
+        if (ramTotal < recommendedRam * 0.75) {
+            problems.push(`❌ RAM критически мало: ${ramTotal} ГБ, рекомендуется ≥${Math.ceil(recommendedRam * 0.75)} ГБ для ${currUsers} польз. (конф. ${confType.toUpperCase()})`);
+            criticalScore += 2;
+        } else if (ramTotal < recommendedRam) {
+            problems.push(`⚠️ RAM: ${ramTotal} ГБ, рекомендуется ≥${recommendedRam} ГБ`);
+            warningScore++;
+        }
+        if (swapUsed > 1.0 || processSwap === 'yes') {
+            problems.push(`❌ Активный swap (${swapUsed} ГБ) – критическая нехватка RAM. 1С и PG попадают в swap`);
+            criticalScore += 3;
+        }
+        if (ramFree < ramTotal * 0.1) {
+            problems.push(`⚠️ Мало свободной RAM: ${ramFree} ГБ (<10% от ${ramTotal} ГБ)`);
+            warningScore++;
+        }
+
+        const latencyNorm = diskType === 'nvme' ? { warn: 2, crit: 5 }
+                          : diskType === 'ssd'  ? { warn: 5, crit: 20 }
+                          : { warn: 20, crit: 40 };
+        if (diskAwait > latencyNorm.crit) {
+            problems.push(`❌ Диск: await = ${diskAwait} мс – критично для ${diskType.toUpperCase()}. Норма <${latencyNorm.warn} мс`);
+            criticalScore += 3;
+        } else if (diskAwait > latencyNorm.warn) {
+            problems.push(`⚠️ Диск: await = ${diskAwait} мс (норма для ${diskType.toUpperCase()} <${latencyNorm.warn} мс)`);
+            warningScore++;
+        }
+        if (diskAvgqu > 2.5) {
+            problems.push(`⚠️ Длинная очередь диска: avgqu-sz = ${diskAvgqu} (норма <2.5)`);
+            warningScore++;
+        }
+
+        if (pgHit < 90) {
+            problems.push(`❌ PostgreSQL cache hit = ${pgHit}% – критически низко. Увеличьте shared_buffers и RAM`);
+            criticalScore += 2;
+        } else if (pgHit < 98) {
+            problems.push(`⚠️ PostgreSQL cache hit = ${pgHit}% (цель ≥98%). Рассмотрите увеличение shared_buffers`);
+            warningScore++;
+        }
+        if (pgConn > 150) {
+            problems.push(`⚠️ Активных соединений PG: ${pgConn} – рекомендуется установить pgBouncer (transaction pooling)`);
+            warningScore++;
+        }
+        if (slowQueries === 'yes') {
+            problems.push(`⚠️ Медленные запросы – требуется анализ pg_stat_statements, оптимизация индексов`);
+            warningScore++;
+        }
+        if (netErrors === 'yes') {
+            problems.push(`ℹ️ Сетевые ошибки – проверьте кабели и SFP, это не влияет на CPU/RAM/Disk`);
+        }
+
+        if (!isNaN(gilev)) {
+            if (gilev < 30) {
+                problems.push(`⚠️ Тест Гилёва: ${gilev} оп/с – ${gilevInterp.text}. CPU или дисковая подсистема узкое место`);
+                criticalScore += 2;
+            } else {
+                problems.push(`✅ Тест Гилёва: ${gilev} оп/с – ${gilevInterp.text}`);
+            }
+        }
+
+        const needNewServer = criticalScore >= 4 || (criticalScore >= 2 && warningScore >= 3);
+        const verdict = needNewServer ? "🔴 Сервер требует ПОЛНОЙ ЗАМЕНЫ или существенной реконфигурации"
+                                      : criticalScore > 0 ? "🟠 Требуется УСТРАНЕНИЕ критических проблем"
+                                      : "🟡 Рекомендуется МОДЕРНИЗАЦИЯ";
+
+        const archRec = getArchitectureRecommendationText(currUsers);
+
+        let html = `<div class="diagnostic-box ${needNewServer ? 'diagnostic-critical' : criticalScore > 0 ? 'diagnostic-warning' : 'diagnostic-warning'}">
+            <strong>📌 Результат диагностики:</strong> ${verdict}<br>
+            <small style="color:#666">Критичность: ${criticalScore} | Предупреждения: ${warningScore}</small><br><br>
+            <strong>Выявленные проблемы:</strong><br>
+            ${problems.map(p => `• ${p}`).join('<br>') || '✓ Явных узких мест не обнаружено.'}
+            <hr>
+            <strong>💡 Рекомендации:</strong><br>
+            ${needNewServer
+                ? '• Приобретите новый сервер, используя калькулятор выше.<br>• Перед закупкой проведите тест Гилёва на эталонном оборудовании (результат должен быть >30 оп/с).'
+                : '• Добавьте RAM до рекомендуемого объёма.<br>• Переведите диск на NVMe (RAID 1 минимум).<br>• Настройте autovacuum и создайте индексы.'}
+            <br>• <strong>Антивирус:</strong> добавьте каталоги 1С и PostgreSQL в исключения.
+            <br>• <strong>RAM-диск:</strong> для pg_stat_tmp используйте tmpfs.
+            <br>• <strong>Регламент:</strong> VACUUM и резервное копирование – только в нерабочее время.
+            <br>• <strong>NUMA:</strong> на многопроцессорных серверах используйте numactl --interleave=all для PostgreSQL.
+            <br>• <strong>Архитектура:</strong> ${archRec.replace(/\*\*/g, '')}
+            ${pgConn > 100 || currUsers > 50 ? '<br>• <strong>pgBouncer:</strong> обязателен. Без пулера при текущем количестве соединений PG теряет производительность.' : ''}
+        </div>`;
+        document.getElementById('diagnosticResultArea').innerHTML = html;
+    }
+
+    function exportToMarkdown() {
+        const ts = new Date().toLocaleString();
+        const confTypeLabel = document.getElementById('conf_type').options[document.getElementById('conf_type').selectedIndex].text;
+        let md = `# Отчёт Сайзера для 1С (Linux + PostgreSQL)\n\n**Дата отчёта:** ${ts}\n\n`;
+        md += `## 1. Собранные параметры\n\n| Параметр | Значение |\n|----------|----------|\n`;
+        const params = ['conf_type','curr_users','curr_dbsize','curr_loadtype','cpu_cores','load1','ram_total','ram_free','swap_used','disk_type','disk_await','disk_avgqu','pg_hit','pg_conn','slow_queries','net_errors','process_swap','gilev_result'];
+        const labels = ['Тип конфигурации 1С','Активных пользователей','Размер БД (ГБ)','Интенсивность нагрузки','Ядер CPU','Load average','RAM общий (ГБ)','RAM свободно (ГБ)','Swap (ГБ)','Тип дискового массива','await диска (мс)','avgqu-sz','Cache hit (%)','Активных соединений PG','Медленные запросы','Сетевые ошибки','Процессы в swap','Тест Гилёва (оп/с)'];
+        const selectIds = ['conf_type','curr_loadtype','disk_type','slow_queries','net_errors','process_swap'];
+        for (let i = 0; i < params.length; i++) {
+            const el = document.getElementById(params[i]);
+            const val = selectIds.includes(params[i]) ? el.options[el.selectedIndex].text : el.value;
+            md += `| ${labels[i]} | ${val} |\n`;
+        }
+        md += `\n## 2. Результат диагностики\n\n${document.getElementById('diagnosticResultArea').innerText || 'Не выполнена'}\n\n`;
+        md += `## 3. Рекомендуемая конфигурация сервера\n\n${(document.getElementById('futureServerResult') || {}).innerText || 'Не рассчитана'}\n\n`;
+        md += `## 4. Обоснование\n\n`;
+        md += `- Диагностика: метрики ОС + PostgreSQL.\n`;
+        md += `- Тип конфигурации 1С: ${confTypeLabel}.\n`;
+        md += `- Нагрузка: ${document.getElementById('curr_users').value} польз., БД ${document.getElementById('curr_dbsize').value} ГБ.\n`;
+        md += `- Рост: ${document.getElementById('growth_percent').value}%/год.\n`;
+        md += `- **Обязательно:** антивирусные исключения, pgBouncer при 50+ пользователях, tmpfs для pg_stat_tmp, регламент в нерабочее время.\n`;
+        md += `- **shared_buffers = 25% RAM**, **work_mem** устанавливать с учётом числа соединений и сортировок.\n`;
+        const blob = new Blob([md], { type: 'text/markdown' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = `report_1c_linux_${Date.now()}.md`; a.click();
+        URL.revokeObjectURL(url);
+    }
+
+    document.getElementById('analyzeBtn').addEventListener('click', performDiagnostics);
+    document.getElementById('calcFutureBtn').addEventListener('click', calcFutureServer);
+    document.getElementById('exportBtn').addEventListener('click', exportToMarkdown);
+    document.getElementById('gilevHelpBtn').addEventListener('click', () => {
+        document.getElementById('gilevModal').style.display = 'flex';
+    });
+
+    calcFutureServer();
+</script>
+</body>
+</html>

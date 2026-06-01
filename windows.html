@@ -1,0 +1,677 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Сайзер для 1С – Windows + MS SQL Server</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { background: #eef2f7; font-family: 'Segoe UI', Roboto, sans-serif; padding: 20px; }
+        .container { max-width: 1400px; margin: 0 auto; }
+        .card {
+            background: white; border-radius: 28px;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.08);
+            margin-bottom: 25px; overflow: hidden;
+        }
+        .card-header {
+            background: #1e2a3e; color: white;
+            padding: 1rem 1.5rem; font-size: 1.2rem; font-weight: 600;
+            display: flex; align-items: center; gap: 10px;
+            flex-wrap: wrap; justify-content: space-between;
+        }
+        .card-body { padding: 1.5rem; }
+        table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+        th, td { text-align: left; padding: 10px 8px; border-bottom: 1px solid #e2e8f0; vertical-align: top; }
+        th { background: #f1f5f9; width: 22%; }
+        code { background: #eef2ff; padding: 2px 6px; border-radius: 10px; font-family: monospace; font-size: 0.75rem; word-break: break-word; }
+        .copy-btn {
+            background: #2c6e9e; color: white; border: none;
+            padding: 4px 10px; border-radius: 20px; font-size: 0.7rem;
+            cursor: pointer; margin-left: 8px;
+        }
+        .copy-btn:hover { background: #1e4a6e; }
+        input, select {
+            width: 100%; padding: 8px 10px;
+            border: 1px solid #cbd5e1; border-radius: 14px; font-size: 0.85rem;
+        }
+        button {
+            background: #1e2a3e; color: white; border: none;
+            padding: 10px 20px; border-radius: 40px; font-size: 0.9rem;
+            cursor: pointer; margin-right: 10px; margin-top: 10px;
+        }
+        button:hover { background: #2c6e9e; }
+        .diagnostic-box {
+            background: #f8fafc; border-radius: 20px;
+            padding: 1.2rem; margin-top: 1.5rem;
+            border-left: 5px solid #2c6e9e;
+        }
+        .diagnostic-critical { border-left-color: #dc2626; background: #fff5f5; }
+        .diagnostic-warning  { border-left-color: #f59e0b; background: #fffbeb; }
+        .diagnostic-good     { border-left-color: #10b981; background: #f0fdf4; }
+        .flex-btns { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 15px; }
+        .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1rem; margin-bottom: 1rem; }
+        hr { margin: 15px 0; border-color: #e2edf2; }
+        .back-link {
+            display: inline-block; background: #6c86a3; color: white;
+            padding: 8px 16px; border-radius: 30px; text-decoration: none; font-size: 0.85rem;
+        }
+        .back-link:hover { background: #5a6e8a; }
+        .note { font-size: 0.8rem; color: #5b6e8c; margin-top: 8px; }
+        .admin-note {
+            background: #fff3cd; border-left: 4px solid #ffc107;
+            padding: 12px 15px; margin-bottom: 15px;
+            border-radius: 12px; font-size: 0.85rem;
+        }
+        .info-block {
+            background: #e0f2fe; border-left: 4px solid #0284c7;
+            padding: 12px 15px; margin-top: 20px;
+            border-radius: 12px; font-size: 0.85rem;
+        }
+        .gilev-group {
+            background: #f3e8ff; border-left: 4px solid #9333ea;
+            padding: 12px 15px; margin-bottom: 20px; border-radius: 12px;
+        }
+        .conf-group {
+            background: #fef9ec; border-left: 4px solid #d97706;
+            padding: 12px 15px; margin-bottom: 20px; border-radius: 12px;
+        }
+        .modal {
+            display: none; position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.5);
+            justify-content: center; align-items: center; z-index: 1000;
+        }
+        .modal-content {
+            background: white; max-width: 700px; width: 90%;
+            border-radius: 28px; padding: 20px;
+            box-shadow: 0 20px 35px rgba(0,0,0,0.3);
+        }
+        .modal-header { font-size: 1.3rem; font-weight: bold; margin-bottom: 15px; }
+        .close-modal { float: right; cursor: pointer; font-size: 1.5rem; }
+        .modal pre, .modal code { color: #e2e8f0 !important; background: transparent; }
+        .recommend-table {
+            width: 100%; border-collapse: collapse; margin: 12px 0;
+            background: white; border-radius: 16px; overflow: hidden;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        }
+        .recommend-table th, .recommend-table td {
+            padding: 10px 12px; text-align: left;
+            border-bottom: 1px solid #e2e8f0; vertical-align: top;
+        }
+        .recommend-table th {
+            background-color: #f1f5f9; font-weight: 600; width: 35%; color: #1e2a3e;
+        }
+        .recommend-table td { background-color: #ffffff; color: #1e2a3e; }
+        .recommend-table tr:last-child td, .recommend-table tr:last-child th { border-bottom: none; }
+        .warn-inline {
+            background: #fffbeb; border: 1px solid #fcd34d;
+            border-radius: 8px; padding: 6px 10px;
+            font-size: 0.8rem; color: #92400e; margin-top: 6px;
+        }
+        @media (max-width: 700px) {
+            .recommend-table th, .recommend-table td { padding: 8px 10px; font-size: 0.8rem; }
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+
+    <!-- Modal: Тест Гилёва -->
+    <div id="gilevModal" class="modal">
+        <div class="modal-content">
+            <span class="close-modal" onclick="document.getElementById('gilevModal').style.display='none'">&times;</span>
+            <div class="modal-header">📊 Запуск теста Гилёва (TPC-1C) на Windows</div>
+            <p>Тест измеряет производительность сервера в условных операциях в секунду. Запустите на сервере 1С (не на клиенте):</p>
+            <div style="background: #0f172a; border-radius: 16px; padding: 16px; margin: 15px 0; overflow-x: auto;">
+                <pre style="margin: 0; font-family: 'Courier New', monospace; font-size: 13px; color: #e2e8f0; white-space: pre-wrap; word-break: break-word;"><code># PowerShell: скачать и распаковать
+Invoke-WebRequest -Uri "http://www.gilev.ru/tpc1cgilv/tpc1cgilv.zip" -OutFile "C:\tpc1c.zip"
+Expand-Archive -Path "C:\tpc1c.zip" -DestinationPath "C:\tpc1c"
+# Запустить tpc1c_gilv.exe из папки C:\tpc1c</code></pre>
+            </div>
+            <button class="copy-modal-btn" data-cmd='Invoke-WebRequest -Uri "http://www.gilev.ru/tpc1cgilv/tpc1cgilv.zip" -OutFile "C:\tpc1c.zip"; Expand-Archive -Path "C:\tpc1c.zip" -DestinationPath "C:\tpc1c"' style="background: #2c6e9e; color: white; border: none; padding: 6px 16px; border-radius: 24px; cursor: pointer; margin-bottom: 15px;">📋 Копировать команды</button>
+            <p><strong>Интерпретация:</strong><br>
+            • &lt; 15 оп/с – очень низкая производительность, требуется апгрейд.<br>
+            • 15–30 – средняя, возможны задержки при 20+ пользователях.<br>
+            • 30–50 – хорошая, комфортная работа.<br>
+            • &gt;50 – отличная, подходит для высоких нагрузок.<br>
+            <strong>Важно:</strong> тест однопоточный и чувствителен к тактовой частоте CPU и схеме электропитания. Переключите план питания в «Высокая производительность» перед тестом. В виртуальных машинах результаты могут быть ниже реальных.</p>
+            <button onclick="document.getElementById('gilevModal').style.display='none'" style="margin-top: 5px;">Закрыть</button>
+        </div>
+    </div>
+
+    <!-- Секция 1: Сбор параметров и диагностика -->
+    <div class="card">
+        <div class="card-header">
+            <span>🖥️ Windows + MS SQL Server – сбор параметров и диагностика</span>
+            <a href="index.html" class="back-link">← На главную</a>
+        </div>
+        <div class="card-body">
+            <div class="admin-note">
+                ⚠️ <strong>Внимание:</strong> Команды PowerShell требуют запуска от имени Администратора. Для sqlcmd необходимо подключение к SQL Server с правами sysadmin.
+            </div>
+
+            <!-- Тип конфигурации 1С -->
+            <div class="conf-group">
+                <strong>🗂️ Тип конфигурации 1С:</strong>
+                <select id="conf_type" style="width:auto; display:inline-block; margin-left:10px; min-width:260px;">
+                    <option value="bp">Бухгалтерия предприятия (БП)</option>
+                    <option value="ut" selected>Управление торговлей (УТ) / ЗУП</option>
+                    <option value="erp">ERP / Комплексная автоматизация (КА)</option>
+                    <option value="custom">Нетиповая / не знаю</option>
+                </select>
+                <span class="note">Влияет на расход RAM сервера приложений (БП: ~2 ГБ/польз., УТ/ЗУП: ~2.5 ГБ/польз., ERP/КА: ~3.5 ГБ/польз.)</span>
+            </div>
+
+            <!-- Тест Гилёва -->
+            <div class="gilev-group">
+                <strong>⚡ Результат теста Гилёва (TPC-1C):</strong>
+                <input type="number" id="gilev_result" placeholder="Например 32" step="1" style="width:150px; display:inline-block; margin-left:10px;">
+                <button id="gilevHelpBtn" style="background:#9333ea; padding:4px 12px;">❓ Инструкция</button>
+                <span class="note">(оп/с – условных операций в секунду)</span>
+            </div>
+
+            <div style="overflow-x: auto;">
+                <table id="paramsTable">
+                    <thead><tr><th>Параметр</th><th>Команда PowerShell / sqlcmd</th><th>Значение</th><th>Норма / примечание</th></tr></thead>
+                    <tbody>
+                        <tr>
+                            <td>👥 Активных пользователей (пик)</td>
+                            <td><code>оцените по журналу 1С</code></td>
+                            <td><input type="number" id="curr_users" value="10"></td>
+                            <td>ключевой параметр</td>
+                        </tr>
+                        <tr>
+                            <td>💾 Размер всех БД (ГБ)</td>
+                            <td><code>sqlcmd -Q "SELECT CAST(SUM(CAST(size AS bigint)*8)/1024.0/1024 AS DECIMAL(10,1)) FROM sys.master_files WHERE database_id>4" -W</code><button class="copy-btn" data-cmd='sqlcmd -Q "SELECT CAST(SUM(CAST(size AS bigint)*8)/1024.0/1024 AS DECIMAL(10,1)) FROM sys.master_files WHERE database_id>4" -W'>📋</button></td>
+                            <td><input type="number" id="curr_dbsize" value="10"></td>
+                            <td>влияет на кэш</td>
+                        </tr>
+                        <tr>
+                            <td>⚡ Интенсивность нагрузки</td>
+                            <td><code>анализ типовых операций</code></td>
+                            <td><select id="curr_loadtype"><option value="light" selected>Лёгкая</option><option value="medium">Средняя</option><option value="heavy">Тяжёлая</option></select></td>
+                            <td>тяжёлая +40% ресурсов</td>
+                        </tr>
+                        <tr>
+                            <td>🖥️ Логических ядер CPU</td>
+                            <td><code>(Get-CimInstance Win32_ComputerSystem).NumberOfLogicalProcessors</code><button class="copy-btn" data-cmd="(Get-CimInstance Win32_ComputerSystem).NumberOfLogicalProcessors">📋</button></td>
+                            <td><input type="number" id="cpu_cores" value="4"></td>
+                            <td>для 1С+MSSQL ≥4 ядер</td>
+                        </tr>
+                        <tr>
+                            <td>📈 Загрузка CPU (%)</td>
+                            <td><code>(Get-CimInstance Win32_Processor | Measure-Object -Property LoadPercentage -Average).Average</code><button class="copy-btn" data-cmd="(Get-CimInstance Win32_Processor | Measure-Object -Property LoadPercentage -Average).Average">📋</button></td>
+                            <td><input type="text" id="cpu_load" value="20"></td>
+                            <td>&lt;70% в пик</td>
+                        </tr>
+                        <tr>
+                            <td>💿 Общий RAM (ГБ)</td>
+                            <td><code>[math]::Round((Get-CimInstance Win32_ComputerSystem).TotalPhysicalMemory/1GB,0)</code><button class="copy-btn" data-cmd="[math]::Round((Get-CimInstance Win32_ComputerSystem).TotalPhysicalMemory/1GB,0)">📋</button></td>
+                            <td><input type="number" id="ram_total" value="16"></td>
+                            <td>≥16 ГБ для малых БД</td>
+                        </tr>
+                        <tr>
+                            <td>🧠 Свободно RAM (ГБ)</td>
+                            <td><code>[math]::Round((Get-CimInstance Win32_OperatingSystem).FreePhysicalMemory/1024/1024,1)</code><button class="copy-btn" data-cmd="[math]::Round((Get-CimInstance Win32_OperatingSystem).FreePhysicalMemory/1024/1024,1)">📋</button></td>
+                            <td><input type="number" id="ram_free" value="6"></td>
+                            <td>&gt;10% от общего</td>
+                        </tr>
+                        <tr>
+                            <td>🔄 Используемый pagefile (ГБ)</td>
+                            <td><code>[math]::Round((Get-CimInstance Win32_PageFileUsage).CurrentUsage/1024,1)</code><button class="copy-btn" data-cmd="[math]::Round((Get-CimInstance Win32_PageFileUsage).CurrentUsage/1024,1)">📋</button></td>
+                            <td><input type="number" id="pagefile_used" value="0"></td>
+                            <td>0 – идеал, &gt;2 – проблема</td>
+                        </tr>
+                        <tr>
+                            <td>💽 Очередь диска (avg)</td>
+                            <td><code>(Get-Counter '\PhysicalDisk(_Total)\Avg. Disk Queue Length').CounterSamples.CookedValue</code><button class="copy-btn" data-cmd="(Get-Counter '\PhysicalDisk(_Total)\Avg. Disk Queue Length').CounterSamples.CookedValue">📋</button></td>
+                            <td><input type="number" id="disk_queue" value="0.5"></td>
+                            <td>&lt;2</td>
+                        </tr>
+                        <tr>
+                            <td>💾 Латентность диска (мс)</td>
+                            <td><code>(Get-Counter '\PhysicalDisk(_Total)\Avg. Disk sec/Transfer').CounterSamples.CookedValue * 1000</code><button class="copy-btn" data-cmd="(Get-Counter '\PhysicalDisk(_Total)\Avg. Disk sec/Transfer').CounterSamples.CookedValue * 1000">📋</button></td>
+                            <td><input type="number" id="disk_latency" value="2"></td>
+                            <td>NVMe&lt;2, SSD&lt;10, HDD&lt;20</td>
+                        </tr>
+                        <tr>
+                            <td>🖥️ Тип дискового массива</td>
+                            <td><code>Get-PhysicalDisk | Select FriendlyName,MediaType,BusType | Format-Table</code><button class="copy-btn" data-cmd="Get-PhysicalDisk | Select FriendlyName,MediaType,BusType | Format-Table">📋</button></td>
+                            <td><select id="disk_type">
+                                <option value="nvme">NVMe SSD</option>
+                                <option value="ssd" selected>SATA/SAS SSD</option>
+                                <option value="hdd">HDD / RAID HDD</option>
+                            </select></td>
+                            <td>Влияет на пороги латентности</td>
+                        </tr>
+                        <tr>
+                            <td>📊 SQL Server Buffer cache hit %</td>
+                            <td><code>sqlcmd -Q "SELECT ROUND((a.cntr_value*1.0/b.cntr_value)*100,2) FROM sys.dm_os_performance_counters a JOIN sys.dm_os_performance_counters b ON a.object_name=b.object_name WHERE a.counter_name='Buffer cache hit ratio' AND b.counter_name='Buffer cache hit ratio base'" -W</code><button class="copy-btn" data-cmd='sqlcmd -Q "SELECT ROUND((a.cntr_value*1.0/b.cntr_value)*100,2) FROM sys.dm_os_performance_counters a JOIN sys.dm_os_performance_counters b ON a.object_name=b.object_name WHERE a.counter_name=''Buffer cache hit ratio'' AND b.counter_name=''Buffer cache hit ratio base''" -W'>📋</button></td>
+                            <td><input type="number" id="sql_hit" value="98"></td>
+                            <td>&gt;98% – отлично</td>
+                        </tr>
+                        <tr>
+                            <td>📈 Page Life Expectancy (сек)</td>
+                            <td><code>sqlcmd -Q "SELECT cntr_value FROM sys.dm_os_performance_counters WHERE counter_name='Page life expectancy' AND object_name LIKE '%Buffer Manager%'" -W</code><button class="copy-btn" data-cmd="sqlcmd -Q \"SELECT cntr_value FROM sys.dm_os_performance_counters WHERE counter_name='Page life expectancy' AND object_name LIKE '%Buffer Manager%'\" -W">📋</button></td>
+                            <td><input type="number" id="sql_ple" value="500"></td>
+                            <td>&gt;300 с – норма, &gt;1000 – отлично</td>
+                        </tr>
+                        <tr>
+                            <td>🐢 Медленные запросы</td>
+                            <td><code>sqlcmd -Q "SELECT TOP 5 total_elapsed_time/execution_count/1000 AS avg_ms, text FROM sys.dm_exec_query_stats CROSS APPLY sys.dm_exec_sql_text(sql_handle) ORDER BY avg_ms DESC" -W</code><button class="copy-btn" data-cmd="sqlcmd -Q \"SELECT TOP 5 total_elapsed_time/execution_count/1000 AS avg_ms, text FROM sys.dm_exec_query_stats CROSS APPLY sys.dm_exec_sql_text(sql_handle) ORDER BY avg_ms DESC\" -W">📋</button></td>
+                            <td><select id="slow_queries"><option value="no" selected>Нет/редко</option><option value="yes">Да, часто</option></select></td>
+                            <td>требуют индексов/статистики</td>
+                        </tr>
+                        <tr>
+                            <td>🌐 Сетевые ошибки</td>
+                            <td><code>(Get-NetAdapterStatistics | Measure-Object -Property OutboundErrors,InboundErrors -Sum).Sum</code><button class="copy-btn" data-cmd="(Get-NetAdapterStatistics | Measure-Object -Property OutboundErrors,InboundErrors -Sum).Sum">📋</button></td>
+                            <td><select id="net_errors"><option value="no" selected>Нет</option><option value="yes">Есть</option></select></td>
+                            <td>должны быть 0</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <div class="flex-btns">
+                <button id="analyzeBtn">🔍 Диагностика</button>
+                <button id="exportBtn">📄 Экспорт отчёта (MD)</button>
+            </div>
+            <div id="diagnosticResultArea"></div>
+        </div>
+    </div>
+
+    <!-- Секция 2: Подбор сервера -->
+    <div class="card">
+        <div class="card-header">⚙️ Подбор сервера на планируемую нагрузку</div>
+        <div class="card-body">
+            <div class="form-grid">
+                <div><label>🗂️ Тип конфигурации 1С</label>
+                    <select id="future_conf_type">
+                        <option value="bp">Бухгалтерия предприятия (БП)</option>
+                        <option value="ut" selected>Управление торговлей (УТ) / ЗУП</option>
+                        <option value="erp">ERP / Комплексная автоматизация (КА)</option>
+                        <option value="custom">Нетиповая / не знаю</option>
+                    </select>
+                </div>
+                <div><label>👥 Планируемое кол-во пользователей</label><input type="number" id="future_users" value="80"></div>
+                <div><label>📀 Планируемый размер БД (ГБ)</label><input type="number" id="future_dbsize" value="250"></div>
+                <div><label>⚡ Планируемая интенсивность</label>
+                    <select id="future_loadtype">
+                        <option value="light">Лёгкая</option>
+                        <option value="medium" selected>Средняя</option>
+                        <option value="heavy">Тяжёлая</option>
+                    </select>
+                </div>
+                <div><label>📈 Годовой рост пользователей (%)</label><input type="number" id="growth_percent" value="30"></div>
+            </div>
+            <button id="calcFutureBtn">📐 Рассчитать конфигурацию</button>
+            <div id="futureServerResult"></div>
+            <div class="info-block">
+                <strong>💡 Расширенные рекомендации (Windows + MS SQL Server)</strong><br>
+                • <strong>Антивирус:</strong> Добавьте каталоги данных SQL Server (<code>.mdf</code>, <code>.ldf</code>, <code>.ndf</code>), рабочие каталоги 1С, а также <code>tempdb</code> в исключения. Сканирование этих файлов в реальном времени критически снижает производительность.<br>
+                • <strong>tempdb:</strong> Разместите tempdb на отдельном NVMe-диске. Создайте несколько файлов данных tempdb (рекомендуется: <code>min(количество ядер CPU, 8)</code> файлов одинакового размера). Включите флаг трассировки TF 1117 и TF 1118.<br>
+                • <strong>Max Server Memory:</strong> Всегда ограничивайте. Оставьте для ОС: 4 ГБ при ≤16 ГБ RAM, 10% при &gt;32 ГБ (минимум 4 ГБ). Пример: при 64 ГБ RAM → Max Server Memory = 57 ГБ.<br>
+                • <strong>MAXDOP (степень параллелизма):</strong> Для OLTP-нагрузки 1С установите MAXDOP = 1 или 2. 1С плохо параллелит запросы, и высокий MAXDOP может привести к деградации производительности. Рекомендуем MAXDOP = 1, при необходимости – 2. Cost Threshold for Parallelism = 50.<br>
+                • <strong>Регламентные задания:</strong> Обслуживание индексов (reorganize/rebuild), обновление статистики, резервное копирование – только в нерабочее время через SQL Server Agent.<br>
+                • <strong>Разделение серверов:</strong> При 30+ пользователях разделите сервер 1С и SQL Server. При 80+ – кластер серверов 1С (2+ узла).<br>
+                • <strong>Высокая доступность:</strong> AlwaysOn Availability Groups – для чтения/записи (не требует shared storage). FCI – для отказоустойчивого экземпляра (требует shared storage: SAN, S2D).
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const standardCores = [2, 4, 6, 8, 12, 16, 20, 24, 32, 48, 64];
+    const standardRam   = [16, 24, 32, 48, 64, 96, 128, 192, 256, 384, 512, 768];
+
+    const ramPerUserMap = { bp: 2.0, ut: 2.5, erp: 3.5, custom: 3.0 };
+    const appBaseRamGb  = 12;
+
+    document.querySelectorAll('.copy-modal-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            navigator.clipboard.writeText(btn.getAttribute('data-cmd'));
+            const t = btn.textContent;
+            btn.textContent = '✓ Скопировано!';
+            setTimeout(() => btn.textContent = t, 2000);
+        });
+    });
+
+    function roundToStandard(value, standards) {
+        if (value <= standards[0]) return standards[0];
+        for (let i = 0; i < standards.length; i++) {
+            if (value <= standards[i]) return standards[i];
+        }
+        return standards[standards.length - 1];
+    }
+
+    document.querySelectorAll('.copy-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            navigator.clipboard.writeText(btn.getAttribute('data-cmd'));
+            const t = btn.textContent;
+            btn.textContent = '✓';
+            setTimeout(() => btn.textContent = t, 1500);
+        });
+    });
+
+    function interpretGilev(val) {
+        if (val === null || isNaN(val)) return { text: "не указан" };
+        if (val < 15) return { text: "очень низкая (<15) – требуется срочный апгрейд" };
+        if (val < 30) return { text: "средняя (15–30) – возможны задержки" };
+        if (val < 50) return { text: "хорошая (30–50) – комфортная работа" };
+        return { text: "отличная (>50) – высокая производительность" };
+    }
+
+    function getArchitectureRecommendationText(users) {
+        if (users <= 30)  return "🟢 <b>Начальный уровень:</b> Сервер 1С и MS SQL Server можно разместить на одной машине. Допустимо для малых нагрузок.";
+        if (users <= 80)  return "🟡 <b>Стандарт:</b> Рекомендуется разделить сервер приложений 1С и MS SQL Server на разные физические или виртуальные машины. Сеть между серверами – не менее 1 Гбит/с. Для отказоустойчивости – AlwaysOn Basic.";
+        if (users <= 150) return "🟠 <b>Кластер приложений + Отказоустойчивый SQL:</b> Кластер серверов 1С (2+ узла, NLB) и AlwaysOn Availability Group. Сеть – 10 Гбит/с.";
+        return "🔴 <b>Высоконагруженная система:</b> Кластер серверов 1С (3+ узла) и AlwaysOn с несколькими репликами (2 синхронных + асинхронная). Лицензия 1С:Предприятие КОРП.";
+    }
+
+    function getArchitectureDetailsWindows(users, config) {
+        if (users <= 30) {
+            const totalCpu = Math.max(config.appCpu, config.dbCpu);
+            const totalRam = config.appRam + config.dbRam;
+            const cpuDesc  = totalCpu <= 4  ? "Intel Xeon E-2334"
+                           : totalCpu <= 8  ? "Intel Xeon E-2388G"
+                           : totalCpu <= 16 ? "2× Intel Xeon Silver 4310"
+                           : "2× Intel Xeon Gold 5416S";
+            return {
+                description: "Все компоненты (сервер 1С и MS SQL Server) на одной машине. Допустимо при малых нагрузках.",
+                combinedRow: `<th>Единый сервер (1С + MS SQL Server)</th><td>${totalCpu} ядер<br>${cpuDesc}<br>${totalRam} ГБ RAM</td>`
+            };
+        }
+        if (users <= 80) {
+            return {
+                description: "Раздельные серверы приложений 1С и MS SQL Server. Устраняет конкуренцию за ресурсы, повышает производительность.",
+                appRow: `<th>Сервер приложений 1С (1 узел)</th><td>${config.appCpu} ядер (упор на тактовую частоту!)<br>${config.appCpuDesc}<br>${config.appRam} ГБ RAM</td>`,
+                dbRow:  `<th>Сервер MS SQL Server (1 узел)</th><td>${config.dbCpu} ядер<br>${config.dbCpuDesc}<br>${config.dbRam} ГБ RAM</td>`
+            };
+        }
+        if (users <= 150) {
+            return {
+                description: "Кластер серверов 1С (2+ узла, NLB) + AlwaysOn Availability Group (2+ реплики). Обеспечивает высокую доступность и балансировку.",
+                appRow: `<th>Кластер серверов 1С (2+ узла)</th><td>Каждый узел:<br>${config.appCpu} ядер (высокая тактовая!)<br>${config.appCpuDesc}<br>${config.appRam} ГБ RAM</td>`,
+                dbRow:  `<th>MS SQL Server AlwaysOn AG (2+ узла)</th><td>Каждый узел:<br>${config.dbCpu} ядер<br>${config.dbCpuDesc}<br>${config.dbRam} ГБ RAM<br>+ Witness (Cloud Witness или файловый ресурс)</td>`
+            };
+        }
+        return {
+            description: "Кластер серверов 1С (3+ узла) + AlwaysOn с несколькими репликами (2 синхронных + асинхронная для DR). Лицензия 1С:Предприятие КОРП.",
+            appRow: `<th>Кластер серверов 1С (3+ узла)</th><td>Каждый узел:<br>${config.appCpu} ядер (высокая тактовая!)<br>${config.appCpuDesc}<br>${config.appRam} ГБ RAM</td>`,
+            dbRow:  `<th>MS SQL Server AlwaysOn AG (3+ узла)</th><td>Каждый узел:<br>${config.dbCpu} ядер<br>${config.dbCpuDesc}<br>${config.dbRam} ГБ RAM<br>2 синхронных реплики + 1 асинхронная (DR)</td>`
+        };
+    }
+
+    function calcFutureServer() {
+        const users      = parseInt(document.getElementById('future_users').value)    || 10;
+        const dbSizeGb   = parseFloat(document.getElementById('future_dbsize').value) || 10;
+        const loadType   = document.getElementById('future_loadtype').value;
+        const growth     = parseFloat(document.getElementById('growth_percent').value) || 0;
+        const confType   = document.getElementById('future_conf_type').value;
+        const ramPerUser = ramPerUserMap[confType] || 3.0;
+
+        const growthFactor = 1 + growth / 100;
+        let loadFactor = loadType === 'heavy' ? 1.4 : loadType === 'medium' ? 1.1 : 0.9;
+        loadFactor = Math.min(1.6, loadFactor * growthFactor);
+
+        // --- APP SERVER ---
+        const usersPerCore = loadType === 'heavy' ? 4 : loadType === 'medium' ? 6 : 10;
+        let appRawCores = Math.ceil(users / usersPerCore);
+        appRawCores = Math.max(2, Math.min(64, Math.ceil(appRawCores * Math.min(1.3, loadFactor))));
+        const appCores = roundToStandard(appRawCores, standardCores);
+
+        let appRawRam = appBaseRamGb + Math.ceil(users * ramPerUser);
+        if (loadFactor > 1.2) appRawRam = appRawRam * 1.15;
+        appRawRam = Math.max(16, Math.min(512, appRawRam));
+        const appRamGb = roundToStandard(appRawRam, standardRam);
+
+        const appCpuDesc = appCores <= 4  ? "Intel Xeon E-2334 (важна частота ≥3.5 ГГц)"
+                         : appCores <= 8  ? "Intel Xeon E-2388G (частота ≥3.2 ГГц)"
+                         : appCores <= 16 ? "2× Intel Xeon Silver 4314"
+                         : "2× Intel Xeon Gold 6338";
+
+        // --- DB SERVER (MS SQL) ---
+        let dbRawCores = users <= 10  ? 2
+                       : users <= 20  ? 4
+                       : users <= 50  ? 6
+                       : users <= 100 ? 10
+                       : users <= 200 ? 14
+                       : 20;
+        dbRawCores = Math.max(2, Math.min(64, Math.ceil(dbRawCores * Math.min(1.4, loadFactor))));
+        const dbCores = roundToStandard(dbRawCores, standardCores);
+
+        const tempdbOverhead = Math.max(4, Math.ceil(users * 0.1));
+        let dbRawRam = Math.max(16, Math.ceil(dbSizeGb * 0.35) + tempdbOverhead);
+        if (loadFactor > 1.2) dbRawRam = dbRawRam * 1.2;
+        if (users > 30 && dbSizeGb <= 50) dbRawRam = Math.max(32, dbRawRam);
+        dbRawRam = Math.min(512, dbRawRam);
+        const dbRamGb = roundToStandard(dbRawRam, standardRam);
+
+        const dbCpuDesc = dbCores <= 4  ? "Intel Xeon E-2334"
+                        : dbCores <= 8  ? "Intel Xeon E-2388G"
+                        : dbCores <= 16 ? "2× Intel Xeon Silver 4310"
+                        : "2× Intel Xeon Gold 5416S";
+
+        const osReserveGb   = Math.max(4, Math.round(dbRamGb * 0.1));
+        const maxServerMem  = dbRamGb - osReserveGb;
+        const maxdop = Math.min(2, dbCores);
+        const ctfp = 50;
+        const tempdbFiles = Math.min(8, dbCores);
+        const estimatedPLE = Math.round((maxServerMem * 1024 * 8) / Math.max(1, dbSizeGb * 0.1 * 128));
+
+        const sqlSettings = `Max Server Memory = <b>${maxServerMem} ГБ</b> (ОС резерв: ${osReserveGb} ГБ)<br>
+MAXDOP = <b>${maxdop}</b> <span style="color:#666;font-size:0.85em">(для 1С рекомендуется 1–2, т.к. запросы плохо параллелятся)</span><br>
+Cost Threshold for Parallelism = <b>${ctfp}</b><br>
+tempdb: <b>${tempdbFiles} файлов</b> одинакового размера, на отдельном NVMe<br>
+Ожидаемый PLE ≈ ${estimatedPLE > 9999 ? '>9999' : estimatedPLE} сек <span style="color:#666;font-size:0.85em">(норма &gt;300)</span>`;
+
+        const config = { appCpu: appCores, appRam: appRamGb, appCpuDesc, dbCpu: dbCores, dbRam: dbRamGb, dbCpuDesc };
+        const architecture = getArchitectureDetailsWindows(users, config);
+
+        const totalSpaceGb = Math.ceil(dbSizeGb * 2.5);
+        let diskDesc = users <= 30 && dbSizeGb <= 100
+            ? `RAID 1 из 2× NVMe SSD, объём ${totalSpaceGb} ГБ. Отдельный NVMe для tempdb.`
+            : users <= 80 || dbSizeGb <= 300
+            ? `RAID 10 из 4× NVMe SSD, объём ${totalSpaceGb} ГБ. Отдельный NVMe для tempdb и transaction log.`
+            : `RAID 10 из 6+ NVMe SSD, объём ${totalSpaceGb} ГБ. Отдельный массив для tempdb, отдельный – для transaction log.`;
+        const netSpeed = users <= 30 ? "1 Гбит/с" : users <= 80 ? "10 Гбит/с" : "10 Гбит/с (LACP)";
+
+        let html = `<div class="diagnostic-box diagnostic-good">
+            <strong>✅ Рекомендованная архитектура и конфигурация (Windows + MS SQL Server) с учётом роста ${growth}%:</strong>
+            <table class="recommend-table">
+                <tr><th>Компонент</th><th>Рекомендуемая конфигурация</th></tr>`;
+        if (users <= 30) {
+            html += `<tr>${architecture.combinedRow}</tr>`;
+        } else {
+            html += `<tr>${architecture.appRow}</tr>
+                      <tr>${architecture.dbRow}</tr>`;
+        }
+        html += `
+                <tr>
+                    <th>Дисковая подсистема</th>
+                    <td>${diskDesc}<br>Сеть: ${netSpeed}</td>
+                </tr>
+                <tr>
+                    <th>Ключевые настройки MS SQL Server</th>
+                    <td>${sqlSettings}</td>
+                </tr>
+                <tr>
+                    <th>Архитектура</th>
+                    <td>${architecture.description}</td>
+                </tr>
+            </table>
+        </div>`;
+        document.getElementById('futureServerResult').innerHTML = html;
+    }
+
+    function performDiagnostics() {
+        const currUsers   = parseFloat(document.getElementById('curr_users').value)    || 1;
+        const currDbSize  = parseFloat(document.getElementById('curr_dbsize').value)   || 10;
+        const currLoad    = document.getElementById('curr_loadtype').value;
+        const confType    = document.getElementById('conf_type').value;
+        const cpuCores    = parseFloat(document.getElementById('cpu_cores').value)     || 1;
+        const cpuLoad     = parseFloat(document.getElementById('cpu_load').value)      || 0;
+        const ramTotal    = parseFloat(document.getElementById('ram_total').value)     || 16;
+        const ramFree     = parseFloat(document.getElementById('ram_free').value)      || 2;
+        const pagefileUsed= parseFloat(document.getElementById('pagefile_used').value) || 0;
+        const diskQueue   = parseFloat(document.getElementById('disk_queue').value)    || 0;
+        const diskLatency = parseFloat(document.getElementById('disk_latency').value)  || 0;
+        const diskType    = document.getElementById('disk_type').value;
+        const sqlHit      = parseFloat(document.getElementById('sql_hit').value)       || 90;
+        const sqlPle      = parseFloat(document.getElementById('sql_ple').value)       || 0;
+        const slowQueries = document.getElementById('slow_queries').value;
+        const netErrors   = document.getElementById('net_errors').value;
+        const gilev       = parseFloat(document.getElementById('gilev_result').value);
+        const gilevInterp = interpretGilev(gilev);
+        const ramPerUser  = ramPerUserMap[confType] || 3.0;
+
+        const latencyThresholds = diskType === 'nvme' ? { warn: 2, crit: 5 }
+                                : diskType === 'ssd'  ? { warn: 10, crit: 25 }
+                                : { warn: 20, crit: 40 };
+
+        let problems = [];
+        let criticalScore = 0;
+        let warningScore  = 0;
+
+        const usersPerCore = currLoad === 'heavy' ? 4 : currLoad === 'medium' ? 6 : 10;
+        const requiredCores = Math.ceil(currUsers / usersPerCore);
+        if (cpuCores < requiredCores) {
+            problems.push(`⚠️ CPU: ${cpuCores} яд., рекомендуется ≥${requiredCores} для ${currUsers} польз. (нагрузка: ${currLoad})`);
+            warningScore++;
+        }
+        if (cpuLoad > 85) {
+            problems.push(`❌ CPU перегружен: ${cpuLoad}% >85%`);
+            criticalScore += 2;
+        } else if (cpuLoad > 70) {
+            problems.push(`⚠️ Повышенная нагрузка CPU: ${cpuLoad}%`);
+            warningScore++;
+        }
+
+        const recommendedAppRam = Math.ceil(appBaseRamGb + currUsers * ramPerUser);
+        const recommendedDbRam  = Math.max(16, Math.ceil(currDbSize * 0.35));
+        const recommendedRam    = recommendedAppRam + recommendedDbRam;
+        if (ramTotal < recommendedRam * 0.75) {
+            problems.push(`❌ RAM критически мало: ${ramTotal} ГБ, рекомендуется ≥${Math.ceil(recommendedRam * 0.75)} ГБ для ${currUsers} польз. (${confType.toUpperCase()})`);
+            criticalScore += 2;
+        } else if (ramTotal < recommendedRam) {
+            problems.push(`⚠️ RAM: ${ramTotal} ГБ, рекомендуется ≥${recommendedRam} ГБ`);
+            warningScore++;
+        }
+        if (pagefileUsed > 2) {
+            problems.push(`❌ Активное использование pagefile (${pagefileUsed} ГБ) – критическая нехватка RAM`);
+            criticalScore += 3;
+        }
+        if (ramFree < ramTotal * 0.1) {
+            problems.push(`⚠️ Мало свободной RAM: ${ramFree} ГБ (<10%)`);
+            warningScore++;
+        }
+
+        if (diskLatency > latencyThresholds.crit) {
+            problems.push(`❌ Диск: латентность = ${diskLatency} мс – критично для ${diskType.toUpperCase()}. Норма: <${latencyThresholds.warn} мс`);
+            criticalScore += 3;
+        } else if (diskLatency > latencyThresholds.warn) {
+            problems.push(`⚠️ Диск: латентность = ${diskLatency} мс. Для ${diskType.toUpperCase()} норма <${latencyThresholds.warn} мс`);
+            warningScore++;
+        }
+        if (diskQueue > 2) {
+            problems.push(`⚠️ Длинная очередь диска: ${diskQueue} (норма <2)`);
+            warningScore++;
+        }
+
+        if (sqlHit < 90) {
+            problems.push(`❌ Buffer cache hit = ${sqlHit}% – критически низко. Увеличьте Max Server Memory или RAM`);
+            criticalScore += 2;
+        } else if (sqlHit < 98) {
+            problems.push(`⚠️ Buffer cache hit = ${sqlHit}% (цель ≥98%)`);
+            warningScore++;
+        }
+        if (!isNaN(sqlPle) && sqlPle > 0) {
+            if (sqlPle < 300) {
+                problems.push(`❌ Page Life Expectancy = ${sqlPle} сек – критически низко (<300). Нужно больше RAM для Buffer Pool`);
+                criticalScore += 2;
+            } else if (sqlPle < 1000) {
+                problems.push(`⚠️ Page Life Expectancy = ${sqlPle} сек (хорошо ≥1000). Рассмотрите увеличение RAM`);
+                warningScore++;
+            }
+        }
+        if (slowQueries === 'yes') {
+            problems.push(`⚠️ Медленные запросы – анализируйте sys.dm_exec_query_stats, обновите статистику, проверьте индексы`);
+            warningScore++;
+        }
+        if (netErrors === 'yes') {
+            problems.push(`ℹ️ Сетевые ошибки – проверьте кабели и сетевые адаптеры. Не влияет на CPU/RAM/Disk`);
+        }
+
+        if (!isNaN(gilev)) {
+            if (gilev < 30) {
+                problems.push(`⚠️ Тест Гилёва: ${gilev} оп/с – ${gilevInterp.text}. Узкое место: CPU (частота) или дисковая подсистема`);
+                criticalScore += 2;
+            } else {
+                problems.push(`✅ Тест Гилёва: ${gilev} оп/с – ${gilevInterp.text}`);
+            }
+        }
+
+        const needNewServer = criticalScore >= 4 || (criticalScore >= 2 && warningScore >= 3);
+        const verdict = needNewServer ? "🔴 Сервер требует ПОЛНОЙ ЗАМЕНЫ"
+                                      : criticalScore > 0 ? "🟠 Требуется УСТРАНЕНИЕ критических проблем"
+                                      : "🟡 Рекомендуется МОДЕРНИЗАЦИЯ";
+        const archRec = getArchitectureRecommendationText(currUsers);
+
+        let html = `<div class="diagnostic-box ${needNewServer ? 'diagnostic-critical' : 'diagnostic-warning'}">
+            <strong>📌 Результат диагностики (Windows + MS SQL):</strong> ${verdict}<br>
+            <small style="color:#666">Критичность: ${criticalScore} | Предупреждения: ${warningScore}</small><br><br>
+            <strong>Выявленные проблемы:</strong><br>
+            ${problems.map(p => `• ${p}`).join('<br>') || '✓ Явных узких мест не обнаружено.'}
+            <hr>
+            <strong>💡 Рекомендации:</strong><br>
+            ${needNewServer
+                ? '• Приобретите новый сервер, используя калькулятор выше.<br>• Рассмотрите переход на Linux + PostgreSQL (более эффективный стек для 1С).'
+                : '• Добавьте RAM, настройте Max Server Memory корректно.<br>• Замените диск на NVMe RAID 1/10.<br>• Обслужите индексы и обновите статистику.'}
+            <br>• <strong>Антивирус:</strong> добавьте .mdf, .ldf, .ndf и рабочие папки 1С в исключения.
+            <br>• <strong>tempdb:</strong> разместите на отдельном NVMe, создайте ${Math.min(8, Math.ceil(cpuCores / 2))} файлов одинакового размера.
+            <br>• <strong>Регламент:</strong> обслуживание индексов и резервное копирование – только в нерабочее время.
+            <br>• <strong>Архитектура:</strong> ${archRec.replace(/\*\*/g, '')}
+            ${currUsers > 50 ? '<br>• <strong>Отказоустойчивость:</strong> настройте AlwaysOn Availability Group или Failover Cluster Instance.' : ''}
+        </div>`;
+        document.getElementById('diagnosticResultArea').innerHTML = html;
+    }
+
+    function exportToMarkdown() {
+        const ts = new Date().toLocaleString();
+        const confTypeLabel = document.getElementById('conf_type').options[document.getElementById('conf_type').selectedIndex].text;
+        let md = `# Отчёт Сайзера для 1С (Windows + MS SQL Server)\n\n**Дата отчёта:** ${ts}\n\n`;
+        md += `## 1. Собранные параметры\n\n| Параметр | Значение |\n|----------|----------|\n`;
+        const params = ['conf_type','curr_users','curr_dbsize','curr_loadtype','cpu_cores','cpu_load','ram_total','ram_free','pagefile_used','disk_queue','disk_latency','disk_type','sql_hit','sql_ple','slow_queries','net_errors','gilev_result'];
+        const labels = ['Тип конфигурации 1С','Активных пользователей','Размер БД (ГБ)','Интенсивность нагрузки','Ядер CPU','Загрузка CPU (%)','RAM общий (ГБ)','RAM свободно (ГБ)','Pagefile (ГБ)','Очередь диска','Латентность диска (мс)','Тип накопителя','SQL Cache hit (%)','Page Life Expectancy (сек)','Медленные запросы','Сетевые ошибки','Тест Гилёва (оп/с)'];
+        const selectIds = ['conf_type','curr_loadtype','disk_type','slow_queries','net_errors'];
+        for (let i = 0; i < params.length; i++) {
+            const el = document.getElementById(params[i]);
+            const val = selectIds.includes(params[i]) ? el.options[el.selectedIndex].text : el.value;
+            md += `| ${labels[i]} | ${val} |\n`;
+        }
+        md += `\n## 2. Результат диагностики\n\n${document.getElementById('diagnosticResultArea').innerText || 'Не выполнена'}\n\n`;
+        md += `## 3. Рекомендуемая конфигурация сервера\n\n${(document.getElementById('futureServerResult') || {}).innerText || 'Не рассчитана'}\n\n`;
+        md += `## 4. Обоснование\n\n`;
+        md += `- Диагностика: метрики ОС + MS SQL Server.\n`;
+        md += `- Тип конфигурации 1С: ${confTypeLabel}.\n`;
+        md += `- Нагрузка: ${document.getElementById('curr_users').value} польз., БД ${document.getElementById('curr_dbsize').value} ГБ.\n`;
+        md += `- Рост: ${document.getElementById('growth_percent').value}%/год.\n`;
+        md += `- **Обязательно:** антивирусные исключения (.mdf/.ldf/.ndf), Max Server Memory ≠ 0, MAXDOP = 1–2 для 1С, tempdb на отдельном NVMe (${Math.min(8, 4)} файлов), обслуживание индексов в нерабочее время.\n`;
+        md += `- **Page Life Expectancy** должна быть >300 с; низкое значение = нужна RAM для Buffer Pool.\n`;
+        const blob = new Blob([md], { type: 'text/markdown' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = `report_1c_windows_${Date.now()}.md`; a.click();
+        URL.revokeObjectURL(url);
+    }
+
+    document.getElementById('analyzeBtn').addEventListener('click', performDiagnostics);
+    document.getElementById('calcFutureBtn').addEventListener('click', calcFutureServer);
+    document.getElementById('exportBtn').addEventListener('click', exportToMarkdown);
+    document.getElementById('gilevHelpBtn').addEventListener('click', () => {
+        document.getElementById('gilevModal').style.display = 'flex';
+    });
+
+    calcFutureServer();
+</script>
+</body>
+</html>
