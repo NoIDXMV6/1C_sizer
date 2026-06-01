@@ -4,6 +4,7 @@
 
 > **Актуальная версия:** 3.0  
 > **Поддерживаемые платформы:** Linux (Astra Linux / Debian / Ubuntu) + PostgreSQL, Windows Server + MS SQL Server
+<img width="1119" height="974" alt="image" src="https://github.com/user-attachments/assets/d09aa31d-4d20-4ae7-8467-4971685badf4" />
 
 ## 📌 О проекте
 
