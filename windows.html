@@ -308,6 +308,7 @@ Expand-Archive -Path "C:\tpc1c.zip" -DestinationPath "C:\tpc1c"
                 • <strong>Max Server Memory:</strong> Всегда ограничивайте. Оставьте для ОС: 4 ГБ при ≤16 ГБ RAM, 10% при &gt;32 ГБ (минимум 4 ГБ). Пример: при 64 ГБ RAM → Max Server Memory = 57 ГБ.<br>
                 • <strong>MAXDOP (степень параллелизма):</strong> Для OLTP-нагрузки 1С установите MAXDOP = 1 или 2. 1С плохо параллелит запросы, и высокий MAXDOP может привести к деградации производительности. Рекомендуем MAXDOP = 1, при необходимости – 2. Cost Threshold for Parallelism = 50.<br>
                 • <strong>Регламентные задания:</strong> Обслуживание индексов (reorganize/rebuild), обновление статистики, резервное копирование – только в нерабочее время через SQL Server Agent.<br>
+                • <strong>Дисковая подсистема сервера приложений:</strong> Для сервера 1С достаточно SSD (SATA) объёмом от 100 ГБ. RAID 1 – для отказоустойчивости. Производительность диска на этом узле не критична, основная нагрузка на ввод-вывод ложится на SQL Server.<br>
                 • <strong>Разделение серверов:</strong> При 30+ пользователях разделите сервер 1С и SQL Server. При 80+ – кластер серверов 1С (2+ узла).<br>
                 • <strong>Высокая доступность:</strong> AlwaysOn Availability Groups – для чтения/записи (не требует shared storage). FCI – для отказоустойчивого экземпляра (требует shared storage: SAN, S2D).
             </div>
@@ -463,13 +464,17 @@ tempdb: <b>${tempdbFiles} файлов</b> одинакового размера
         const config = { appCpu: appCores, appRam: appRamGb, appCpuDesc, dbCpu: dbCores, dbRam: dbRamGb, dbCpuDesc };
         const architecture = getArchitectureDetailsWindows(users, config);
 
-        const totalSpaceGb = Math.ceil(dbSizeGb * 2.5);
-        let diskDesc = users <= 30 && dbSizeGb <= 100
-            ? `RAID 1 из 2× NVMe SSD, объём ${totalSpaceGb} ГБ. Отдельный NVMe для tempdb.`
+                let totalSpaceDb = Math.ceil(dbSizeGb * 2.5);
+        let diskDbDesc = users <= 30 && dbSizeGb <= 100
+            ? `RAID 1 из 2× NVMe SSD, объём ${totalSpaceDb} ГБ. Отдельный NVMe для tempdb.`
             : users <= 80 || dbSizeGb <= 300
-            ? `RAID 10 из 4× NVMe SSD, объём ${totalSpaceGb} ГБ. Отдельный NVMe для tempdb и transaction log.`
-            : `RAID 10 из 6+ NVMe SSD, объём ${totalSpaceGb} ГБ. Отдельный массив для tempdb, отдельный – для transaction log.`;
-        const netSpeed = users <= 30 ? "1 Гбит/с" : users <= 80 ? "10 Гбит/с" : "10 Гбит/с (LACP)";
+            ? `RAID 10 из 4× NVMe SSD, объём ${totalSpaceDb} ГБ. Отдельный NVMe для tempdb и transaction log.`
+            : `RAID 10 из 6+ NVMe SSD, объём ${totalSpaceDb} ГБ. Отдельный массив для tempdb, отдельный – для transaction log.`;
+        
+        // Диски для сервера приложений (минимальные требования)
+        let diskAppDesc = `Любой SSD (SATA или NVMe) объёмом от 100 ГБ. RAID 1 – для отказоустойчивости. Высокая нагрузка на диск сервера приложений не является узким местом.`;
+        
+        let netSpeed = users <= 30 ? "1 Гбит/с" : users <= 80 ? "10 Гбит/с" : "10 Гбит/с (LACP)";
 
         let html = `<div class="diagnostic-box diagnostic-good">
             <strong>✅ Рекомендованная архитектура и конфигурация (Windows + MS SQL Server) с учётом роста ${growth}%:</strong>
@@ -479,12 +484,16 @@ tempdb: <b>${tempdbFiles} файлов</b> одинакового размера
             html += `<tr>${architecture.combinedRow}</tr>`;
         } else {
             html += `<tr>${architecture.appRow}</tr>
-                      <tr>${architecture.dbRow}</tr>`;
+                      <tr>${architecture.dbRow}</td>`;
         }
         html += `
                 <tr>
-                    <th>Дисковая подсистема</th>
-                    <td>${diskDesc}<br>Сеть: ${netSpeed}</td>
+                    <th>Дисковая подсистема (СУБД)</th>
+                    <td>${diskDbDesc}<br>Сеть между серверами: ${netSpeed}</td>
+                </tr>
+                <tr>
+                    <th>Дисковая подсистема (сервер приложений)</th>
+                    <td>${diskAppDesc}</td>
                 </tr>
                 <tr>
                     <th>Ключевые настройки MS SQL Server</th>
@@ -624,6 +633,7 @@ tempdb: <b>${tempdbFiles} файлов</b> одинакового размера
                 : '• Добавьте RAM, настройте Max Server Memory корректно.<br>• Замените диск на NVMe RAID 1/10.<br>• Обслужите индексы и обновите статистику.'}
             <br>• <strong>Антивирус:</strong> добавьте .mdf, .ldf, .ndf и рабочие папки 1С в исключения.
             <br>• <strong>tempdb:</strong> разместите на отдельном NVMe, создайте ${Math.min(8, Math.ceil(cpuCores / 2))} файлов одинакового размера.
+            <br>• <strong>Примечание:</strong> Высокие значения латентности и очереди диска на сервере приложений обычно не являются узким местом, так как основная дисковая нагрузка приходится на сервер СУБД. Сфокусируйтесь на метриках диска на SQL Server.<br>
             <br>• <strong>Регламент:</strong> обслуживание индексов и резервное копирование – только в нерабочее время.
             <br>• <strong>Архитектура:</strong> ${archRec.replace(/\*\*/g, '')}
             ${currUsers > 50 ? '<br>• <strong>Отказоустойчивость:</strong> настройте AlwaysOn Availability Group или Failover Cluster Instance.' : ''}
