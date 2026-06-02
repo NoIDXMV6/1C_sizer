@@ -345,6 +345,7 @@ chmod +x tpc1c_gilv
                 • <strong>huge_pages:</strong> Включите transparent huge pages для PostgreSQL: <code>echo always > /sys/kernel/mm/transparent_hugepage/enabled</code>.<br>
                 • <strong>NUMA (многопроцессорные системы):</strong> На серверах с двумя и более сокетами CPU используйте <code>numactl --interleave=all</code> для PostgreSQL и для сервера 1С, чтобы избежать межсокетных задержек. Проверьте <code>numactl --hardware</code>.<br>
                 • <strong>Регламентные задания:</strong> VACUUM, ANALYZE, резервное копирование – только в нерабочее время.<br>
+                • <strong>Дисковая подсистема сервера приложений:</strong> Для сервера 1С достаточно любого SSD (SATA SSD) объёмом от 100 ГБ. Высокая нагрузка на диск на этом узле не является узким местом (основные операции ввода-вывода приходятся на СУБД). RAID 1 – для отказоустойчивости.<br>
                 • <strong>Разделение серверов:</strong> При 30+ активных пользователях разделите сервер 1С и PostgreSQL. При 80+ рассмотрите кластер серверов 1С (2+ узла).<br>
                 • <strong>Кластер PostgreSQL:</strong> Для высокой доступности – Patroni + etcd (минимум 3 узла для кворума).
             </div>
@@ -499,15 +500,19 @@ max_connections = <b>${maxConn}</b>${users > 50 ? ' (рекомендуется 
         const config = { appCpu: appCores, appRam: appRamGb, appCpuDesc, dbCpu: dbCores, dbRam: dbRamGb, dbCpuDesc };
         const architecture = getArchitectureDetailsLinux(users, config);
 
-        const totalSpaceGb = Math.ceil(dbSizeGb * 2.5);
-        let diskDesc = users <= 30 && dbSizeGb <= 100
-            ? `NVMe SSD (одиночный или RAID 1 из 2× NVMe), объём ${totalSpaceGb} ГБ. WAL желательно вынести на отдельный раздел.`
+                let totalSpaceDb = Math.ceil(dbSizeGb * 2.5);
+        let diskDbDesc = users <= 30 && dbSizeGb <= 100
+            ? `NVMe SSD (одиночный или RAID 1 из 2× NVMe), объём ${totalSpaceDb} ГБ. WAL желательно вынести на отдельный раздел.`
             : users <= 80 || dbSizeGb <= 300
-            ? `RAID 1 или RAID 10 из 4× NVMe SSD, объём ${totalSpaceGb} ГБ. WAL (pg_wal) – отдельный NVMe. tmpfs для pg_stat_tmp.`
-            : `RAID 10 из 6+ NVMe SSD, объём ${totalSpaceGb} ГБ. WAL на отдельном NVMe. Отдельный раздел tmpfs для временных таблиц.`;
-        const netSpeed = users <= 30 ? "1 Гбит/с" : users <= 80 ? "10 Гбит/с" : "10 Гбит/с (LACP bond)";
-
-        const pgBouncerNote = users >= 50
+            ? `RAID 1 или RAID 10 из 4× NVMe SSD, объём ${totalSpaceDb} ГБ. WAL (pg_wal) – отдельный NVMe. tmpfs для pg_stat_tmp.`
+            : `RAID 10 из 6+ NVMe SSD, объём ${totalSpaceDb} ГБ. WAL на отдельном NVMe. Отдельный раздел tmpfs для временных таблиц.`;
+        
+        // Диски для сервера приложений (требования минимальны)
+        let diskAppDesc = `Любой SSD (SATA или NVMe) объёмом от 100 ГБ. RAID не требуется, но рекомендуется RAID 1 для отказоустойчивости. Основная нагрузка на диск – только при загрузке и записи логов.`;
+        
+        let netSpeed = users <= 30 ? "1 Гбит/с" : users <= 80 ? "10 Гбит/с" : "10 Гбит/с (LACP bond)";
+        
+        let pgBouncerNote = users >= 50
             ? `<div class="warn-inline">🔌 <b>pgBouncer обязателен</b> при ${users} пользователях. Режим: transaction pooling. pool_size = ${Math.ceil(dbCores * 3)}–${Math.ceil(dbCores * 5)} на базу. Без него PG создаёт ${maxConn}+ процессов одновременно.</div>`
             : '';
 
@@ -516,15 +521,19 @@ max_connections = <b>${maxConn}</b>${users > 50 ? ' (рекомендуется 
             <table class="recommend-table">
                 <tr><th>Компонент</th><th>Рекомендуемая конфигурация</th></tr>`;
         if (users <= 30) {
-            html += `<tr>${architecture.combinedRow}</tr>`;
+            html += `<tr>${architecture.combinedRow}</td>`;
         } else {
             html += `<tr>${architecture.appRow}</tr>
                       <tr>${architecture.dbRow}</tr>`;
         }
         html += `
                 <tr>
-                    <th>Дисковая подсистема</th>
-                    <td>${diskDesc}<br>Сеть: ${netSpeed}</td>
+                    <th>Дисковая подсистема (СУБД)</th>
+                    <td>${diskDbDesc}<br>Сеть: ${netSpeed} (между серверами)</td>
+                </tr>
+                <tr>
+                    <th>Дисковая подсистема (сервер приложений)</th>
+                    <td>${diskAppDesc}</td>
                 </tr>
                 <tr>
                     <th>Ключевые настройки PostgreSQL</th>
@@ -661,6 +670,7 @@ max_connections = <b>${maxConn}</b>${users > 50 ? ' (рекомендуется 
                 : '• Добавьте RAM до рекомендуемого объёма.<br>• Переведите диск на NVMe (RAID 1 минимум).<br>• Настройте autovacuum и создайте индексы.'}
             <br>• <strong>Антивирус:</strong> добавьте каталоги 1С и PostgreSQL в исключения.
             <br>• <strong>RAM-диск:</strong> для pg_stat_tmp используйте tmpfs.
+            <br>• <strong>Примечание по диску сервера приложений:</strong> Если вы видите высокие задержки диска на сервере 1С, это редко влияет на производительность пользователей, так как основная нагрузка на диск приходится на СУБД. Тем не менее, убедитесь, что диск не перегружен процессами ОС или антивирусом.<br>
             <br>• <strong>Регламент:</strong> VACUUM и резервное копирование – только в нерабочее время.
             <br>• <strong>NUMA:</strong> на многопроцессорных серверах используйте numactl --interleave=all для PostgreSQL.
             <br>• <strong>Архитектура:</strong> ${archRec.replace(/\*\*/g, '')}
