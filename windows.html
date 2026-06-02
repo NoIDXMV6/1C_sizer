@@ -174,101 +174,97 @@ Expand-Archive -Path "C:\tpc1c.zip" -DestinationPath "C:\tpc1c"
                 <table id="paramsTable">
                     <thead><tr><th>Параметр</th><th>Команда PowerShell / sqlcmd</th><th>Значение</th><th>Норма / примечание</th></tr></thead>
                     <tbody>
-                        <tr>
-                            <td>👥 Активных пользователей (пик)</td>
-                            <td><code>оцените по журналу 1С</code></td>
-                            <td><input type="number" id="curr_users" value="10"></td>
-                            <td>ключевой параметр</td>
-                        </tr>
-                        <tr>
-                            <td>💾 Размер всех БД (ГБ)</td>
-                            <td><code>sqlcmd -Q "SELECT CAST(SUM(CAST(size AS bigint)*8)/1024.0/1024 AS DECIMAL(10,1)) FROM sys.master_files WHERE database_id>4" -W</code><button class="copy-btn" data-cmd='sqlcmd -Q "SELECT CAST(SUM(CAST(size AS bigint)*8)/1024.0/1024 AS DECIMAL(10,1)) FROM sys.master_files WHERE database_id>4" -W'>📋</button></td>
-                            <td><input type="number" id="curr_dbsize" value="10"></td>
-                            <td>влияет на кэш</td>
-                        </tr>
-                        <tr>
-                            <td>⚡ Интенсивность нагрузки</td>
-                            <td><code>анализ типовых операций</code></td>
-                            <td><select id="curr_loadtype"><option value="light" selected>Лёгкая</option><option value="medium">Средняя</option><option value="heavy">Тяжёлая</option></select></td>
-                            <td>тяжёлая +40% ресурсов</td>
-                        </tr>
-                        <tr>
-                            <td>🖥️ Логических ядер CPU</td>
-                            <td><code>(Get-CimInstance Win32_ComputerSystem).NumberOfLogicalProcessors</code><button class="copy-btn" data-cmd="(Get-CimInstance Win32_ComputerSystem).NumberOfLogicalProcessors">📋</button></td>
-                            <td><input type="number" id="cpu_cores" value="4"></td>
-                            <td>для 1С+MSSQL ≥4 ядер</td>
-                        </tr>
-                        <tr>
-                            <td>📈 Загрузка CPU (%)</td>
-                            <td><code>(Get-CimInstance Win32_Processor | Measure-Object -Property LoadPercentage -Average).Average</code><button class="copy-btn" data-cmd="(Get-CimInstance Win32_Processor | Measure-Object -Property LoadPercentage -Average).Average">📋</button></td>
-                            <td><input type="text" id="cpu_load" value="20"></td>
-                            <td>&lt;70% в пик</td>
-                        </tr>
-                        <tr>
-                            <td>💿 Общий RAM (ГБ)</td>
-                            <td><code>[math]::Round((Get-CimInstance Win32_ComputerSystem).TotalPhysicalMemory/1GB,0)</code><button class="copy-btn" data-cmd="[math]::Round((Get-CimInstance Win32_ComputerSystem).TotalPhysicalMemory/1GB,0)">📋</button></td>
-                            <td><input type="number" id="ram_total" value="16"></td>
-                            <td>≥16 ГБ для малых БД</td>
-                        </tr>
-                        <tr>
-                            <td>🧠 Свободно RAM (ГБ)</td>
-                            <td><code>[math]::Round((Get-CimInstance Win32_OperatingSystem).FreePhysicalMemory/1024/1024,1)</code><button class="copy-btn" data-cmd="[math]::Round((Get-CimInstance Win32_OperatingSystem).FreePhysicalMemory/1024/1024,1)">📋</button></td>
-                            <td><input type="number" id="ram_free" value="6"></td>
-                            <td>&gt;10% от общего</td>
-                        </tr>
-                        <tr>
-                            <td>🔄 Используемый pagefile (ГБ)</td>
-                            <td><code>[math]::Round((Get-CimInstance Win32_PageFileUsage).CurrentUsage/1024,1)</code><button class="copy-btn" data-cmd="[math]::Round((Get-CimInstance Win32_PageFileUsage).CurrentUsage/1024,1)">📋</button></td>
-                            <td><input type="number" id="pagefile_used" value="0"></td>
-                            <td>0 – идеал, &gt;2 – проблема</td>
-                        </tr>
-                        <tr>
-                            <td>💽 Очередь диска (avg)</td>
-                            <td><code>(Get-Counter '\PhysicalDisk(_Total)\Avg. Disk Queue Length').CounterSamples.CookedValue</code><button class="copy-btn" data-cmd="(Get-Counter '\PhysicalDisk(_Total)\Avg. Disk Queue Length').CounterSamples.CookedValue">📋</button></td>
-                            <td><input type="number" id="disk_queue" value="0.5"></td>
-                            <td>&lt;2</td>
-                        </tr>
-                        <tr>
-                            <td>💾 Латентность диска (мс)</td>
-                            <td><code>(Get-Counter '\PhysicalDisk(_Total)\Avg. Disk sec/Transfer').CounterSamples.CookedValue * 1000</code><button class="copy-btn" data-cmd="(Get-Counter '\PhysicalDisk(_Total)\Avg. Disk sec/Transfer').CounterSamples.CookedValue * 1000">📋</button></td>
-                            <td><input type="number" id="disk_latency" value="2"></td>
-                            <td>NVMe&lt;2, SSD&lt;10, HDD&lt;20</td>
-                        </tr>
-                        <tr>
-                            <td>🖥️ Тип дискового массива</td>
-                            <td><code>Get-PhysicalDisk | Select FriendlyName,MediaType,BusType | Format-Table</code><button class="copy-btn" data-cmd="Get-PhysicalDisk | Select FriendlyName,MediaType,BusType | Format-Table">📋</button></td>
-                            <td><select id="disk_type">
-                                <option value="nvme">NVMe SSD</option>
-                                <option value="ssd" selected>SATA/SAS SSD</option>
-                                <option value="hdd">HDD / RAID HDD</option>
-                            </select></td>
-                            <td>Влияет на пороги латентности</td>
-                        </tr>
-                        <tr>
-                            <td>📊 SQL Server Buffer cache hit %</td>
-                            <td><code>sqlcmd -Q "SELECT ROUND((a.cntr_value*1.0/b.cntr_value)*100,2) FROM sys.dm_os_performance_counters a JOIN sys.dm_os_performance_counters b ON a.object_name=b.object_name WHERE a.counter_name='Buffer cache hit ratio' AND b.counter_name='Buffer cache hit ratio base'" -W</code><button class="copy-btn" data-cmd='sqlcmd -Q "SELECT ROUND((a.cntr_value*1.0/b.cntr_value)*100,2) FROM sys.dm_os_performance_counters a JOIN sys.dm_os_performance_counters b ON a.object_name=b.object_name WHERE a.counter_name=''Buffer cache hit ratio'' AND b.counter_name=''Buffer cache hit ratio base''" -W'>📋</button></td>
-                            <td><input type="number" id="sql_hit" value="98"></td>
-                            <td>&gt;98% – отлично</td>
-                        </tr>
-                        <tr>
-                            <td>📈 Page Life Expectancy (сек)</td>
-                            <td><code>sqlcmd -Q "SELECT cntr_value FROM sys.dm_os_performance_counters WHERE counter_name='Page life expectancy' AND object_name LIKE '%Buffer Manager%'" -W</code><button class="copy-btn" data-cmd="sqlcmd -Q \"SELECT cntr_value FROM sys.dm_os_performance_counters WHERE counter_name='Page life expectancy' AND object_name LIKE '%Buffer Manager%'\" -W">📋</button></td>
-                            <td><input type="number" id="sql_ple" value="500"></td>
-                            <td>&gt;300 с – норма, &gt;1000 – отлично</td>
-                        </tr>
-                        <tr>
-                            <td>🐢 Медленные запросы</td>
-                            <td><code>sqlcmd -Q "SELECT TOP 5 total_elapsed_time/execution_count/1000 AS avg_ms, text FROM sys.dm_exec_query_stats CROSS APPLY sys.dm_exec_sql_text(sql_handle) ORDER BY avg_ms DESC" -W</code><button class="copy-btn" data-cmd="sqlcmd -Q \"SELECT TOP 5 total_elapsed_time/execution_count/1000 AS avg_ms, text FROM sys.dm_exec_query_stats CROSS APPLY sys.dm_exec_sql_text(sql_handle) ORDER BY avg_ms DESC\" -W">📋</button></td>
-                            <td><select id="slow_queries"><option value="no" selected>Нет/редко</option><option value="yes">Да, часто</option></select></td>
-                            <td>требуют индексов/статистики</td>
-                        </tr>
-                        <tr>
-                            <td>🌐 Сетевые ошибки</td>
-                            <td><code>(Get-NetAdapterStatistics | Measure-Object -Property OutboundErrors,InboundErrors -Sum).Sum</code><button class="copy-btn" data-cmd="(Get-NetAdapterStatistics | Measure-Object -Property OutboundErrors,InboundErrors -Sum).Sum">📋</button></td>
-                            <td><select id="net_errors"><option value="no" selected>Нет</option><option value="yes">Есть</option></select></td>
-                            <td>должны быть 0</td>
-                        </tr>
-                    </tbody>
+    <tr>
+        <td>👥 Активных пользователей (пик)</td>
+        <td><code>оцените по журналу 1С</code></td>
+        <td><input type="number" id="curr_users" value="10"></td>
+        <td class="param-desc">ключевой параметр</td>
+    </tr>
+    <tr>
+        <td>💾 Размер всех БД (ГБ)</td>
+        <td><code>sqlcmd -Q "SELECT CAST(SUM(CAST(size AS bigint)*8)/1024.0/1024 AS DECIMAL(10,1)) FROM sys.master_files WHERE database_id>4" -W</code><button class="copy-btn" data-cmd='sqlcmd -Q "SELECT CAST(SUM(CAST(size AS bigint)*8)/1024.0/1024 AS DECIMAL(10,1)) FROM sys.master_files WHERE database_id>4" -W'>📋</button></td>
+        <td><input type="number" id="curr_dbsize" value="10"></td>
+        <td class="param-desc">влияет на кэш</td>
+    </tr>
+    <tr>
+        <td>⚡ Интенсивность нагрузки</td>
+        <td><code>анализ типовых операций</code></td>
+        <td><select id="curr_loadtype"><option value="light" selected>Лёгкая</option><option value="medium">Средняя</option><option value="heavy">Тяжёлая</option></select></td>
+        <td class="param-desc">тяжёлая +40% ресурсов</td>
+    </tr>
+    <tr>
+        <td>🖥️ Логических ядер CPU</td>
+        <td><code>(Get-CimInstance Win32_ComputerSystem).NumberOfLogicalProcessors</code><button class="copy-btn" data-cmd="(Get-CimInstance Win32_ComputerSystem).NumberOfLogicalProcessors">📋</button></td>
+        <td><input type="number" id="cpu_cores" value="4"></td>
+        <td class="param-desc">для 1С+MSSQL ≥4 ядер</td>
+    </tr>
+    <tr>
+        <td>📈 Загрузка CPU (%)</td>
+        <td><code>(Get-CimInstance Win32_Processor | Measure-Object -Property LoadPercentage -Average).Average</code><button class="copy-btn" data-cmd="(Get-CimInstance Win32_Processor | Measure-Object -Property LoadPercentage -Average).Average">📋</button></td>
+        <td><input type="text" id="cpu_load" value="20"></td>
+        <td class="param-desc">&lt;70% в пик</td>
+    </tr>
+    <tr>
+        <td>💿 Общий RAM (ГБ)</td>
+        <td><code>[math]::Round((Get-CimInstance Win32_ComputerSystem).TotalPhysicalMemory/1GB,0)</code><button class="copy-btn" data-cmd="[math]::Round((Get-CimInstance Win32_ComputerSystem).TotalPhysicalMemory/1GB,0)">📋</button></td>
+        <td><input type="number" id="ram_total" value="16"></td>
+        <td class="param-desc">≥16 ГБ для малых БД</td>
+    </tr>
+    <tr>
+        <td>🧠 Свободно RAM (ГБ)</td>
+        <td><code>[math]::Round((Get-CimInstance Win32_OperatingSystem).FreePhysicalMemory/1024/1024,1)</code><button class="copy-btn" data-cmd="[math]::Round((Get-CimInstance Win32_OperatingSystem).FreePhysicalMemory/1024/1024,1)">📋</button></td>
+        <td><input type="number" id="ram_free" value="6"></td>
+        <td class="param-desc">&gt;10% от общего</td>
+    </tr>
+    <tr>
+        <td>🔄 Используемый pagefile (ГБ)</td>
+        <td><code>[math]::Round((Get-CimInstance Win32_PageFileUsage).CurrentUsage/1024,1)</code><button class="copy-btn" data-cmd="[math]::Round((Get-CimInstance Win32_PageFileUsage).CurrentUsage/1024,1)">📋</button></td>
+        <td><input type="number" id="pagefile_used" value="0"></td>
+        <td class="param-desc">0 – идеал, &gt;2 – проблема</td>
+    </tr>
+            <tr>
+            <td>💽 Очередь диска (avg)</td>
+            <td><code>(Get-Counter '\PhysicalDisk(_Total)\Avg. Disk Queue Length').CounterSamples.CookedValue</code><br><span class="note">Если ошибка на Windows 10/11: используйте Диспетчер задач → Производительность → диск и введите значение вручную. Для восстановления счетчиков: <strong>lodctr /r</strong> (требует админа)</span><button class="copy-btn" data-cmd="(Get-Counter '\PhysicalDisk(_Total)\Avg. Disk Queue Length').CounterSamples.CookedValue">📋</button></td>
+            <td><input type="number" id="disk_queue" value="0.5" step="0.1"></td>
+            <td class="param-desc">&lt;2 – норма; ≥2 – высокая очередь. Для Windows Server команда работает, для клиентских ОС – через Диспетчер задач.</td>
+        </tr>
+            <tr>
+            <td>💾 Латентность диска (мс)</td>
+            <td><code>(Get-Counter '\PhysicalDisk(_Total)\Avg. Disk sec/Transfer').CounterSamples.CookedValue * 1000</code><br><span class="note">Если ошибка на Windows 10/11: оцените визуально в Диспетчере задач → Производительность → диск (время отклика). Для восстановления счетчиков: <strong>lodctr /r</strong> (требует админа)</span><button class="copy-btn" data-cmd="(Get-Counter '\PhysicalDisk(_Total)\Avg. Disk sec/Transfer').CounterSamples.CookedValue * 1000">📋</button></td>
+            <td><input type="number" id="disk_latency" value="2" step="1"></td>
+            <td class="param-desc">NVMe &lt;2 мс, SSD &lt;10 мс, HDD &lt;20 мс. Для Windows Server команда работает, для клиентских ОС – через Диспетчер задач.</td>
+        </tr>
+    <tr>
+        <td>🖥️ Тип дискового массива</td>
+        <td><code>Get-PhysicalDisk | Select FriendlyName,MediaType,BusType | Format-Table</code><button class="copy-btn" data-cmd="Get-PhysicalDisk | Select FriendlyName,MediaType,BusType | Format-Table">📋</button></td>
+        <td><select id="disk_type"><option value="nvme">NVMe SSD</option><option value="ssd" selected>SATA/SAS SSD</option><option value="hdd">HDD / RAID HDD</option></select></td>
+        <td class="param-desc">Влияет на пороги латентности</td>
+    </tr>
+    <tr>
+        <td>📊 SQL Server Buffer cache hit %</td>
+        <td><code>sqlcmd -Q "SELECT ROUND((a.cntr_value*1.0/b.cntr_value)*100,2) FROM sys.dm_os_performance_counters a JOIN sys.dm_os_performance_counters b ON a.object_name=b.object_name WHERE a.counter_name='Buffer cache hit ratio' AND b.counter_name='Buffer cache hit ratio base'" -W</code><button class="copy-btn" data-cmd='sqlcmd -Q "SELECT ROUND((a.cntr_value*1.0/b.cntr_value)*100,2) FROM sys.dm_os_performance_counters a JOIN sys.dm_os_performance_counters b ON a.object_name=b.object_name WHERE a.counter_name=''Buffer cache hit ratio'' AND b.counter_name=''Buffer cache hit ratio base''" -W'>📋</button></td>
+        <td><input type="number" id="sql_hit" value="98"></td>
+        <td class="param-desc">&gt;98% – отлично</td>
+    </tr>
+    <tr>
+        <td>📈 Page Life Expectancy (сек)</td>
+        <td><code>sqlcmd -Q "SELECT cntr_value FROM sys.dm_os_performance_counters WHERE counter_name='Page life expectancy' AND object_name LIKE '%Buffer Manager%'" -W</code><button class="copy-btn" data-cmd="sqlcmd -Q \"SELECT cntr_value FROM sys.dm_os_performance_counters WHERE counter_name='Page life expectancy' AND object_name LIKE '%Buffer Manager%'\" -W">📋</button></td>
+        <td><input type="number" id="sql_ple" value="500"></td>
+        <td class="param-desc">&gt;300 с – норма, &gt;1000 – отлично</td>
+    </tr>
+    <tr>
+        <td>🐢 Медленные запросы</td>
+        <td><code>sqlcmd -Q "SELECT TOP 5 total_elapsed_time/execution_count/1000 AS avg_ms, text FROM sys.dm_exec_query_stats CROSS APPLY sys.dm_exec_sql_text(sql_handle) ORDER BY avg_ms DESC" -W</code><button class="copy-btn" data-cmd="sqlcmd -Q \"SELECT TOP 5 total_elapsed_time/execution_count/1000 AS avg_ms, text FROM sys.dm_exec_query_stats CROSS APPLY sys.dm_exec_sql_text(sql_handle) ORDER BY avg_ms DESC\" -W">📋</button></td>
+        <td><select id="slow_queries"><option value="no" selected>Нет/редко</option><option value="yes">Да, часто</option></select></td>
+        <td class="param-desc">требуют индексов/статистики</td>
+    </tr>
+    <tr>
+        <td>🌐 Сетевые ошибки</td>
+        <td><code>Get-NetAdapterStatistics | Select-Object Name, OutboundErrors, InboundErrors</code><br><span class="note">(посмотрите на наличие ненулевых ошибок)</span><button class="copy-btn" data-cmd="Get-NetAdapterStatistics | Select-Object Name, OutboundErrors, InboundErrors">📋</button></td>
+        <td><select id="net_errors"><option value="no" selected>Нет</option><option value="yes">Есть</option></select></td>
+        <td class="param-desc">должны быть 0</td>
+    </tr>
+</tbody>
                 </table>
             </div>
             <div class="flex-btns">
